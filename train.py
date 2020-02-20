@@ -46,6 +46,12 @@ def main(config):
 
     trainer.train()
 
+    # evaluate all and return the velocity matrix (1720, 1448)
+    velo_mat = model(data_loader.dataset.Ux_sz.cuda(), data_loader.dataset.Sx_sz.cuda()).cpu().data
+    print('velo_mat shape:', velo_mat.shape)
+    import numpy as np
+    np.savez('./data/velo_mat.npz', velo_mat=velo_mat)
+
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
