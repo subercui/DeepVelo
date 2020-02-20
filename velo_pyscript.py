@@ -95,7 +95,6 @@ def principal_curve(X, pca=True):
 # # Load raw data
 
 # %%
-# %%pixie_debugger
 vlm = vcy.VelocytoLoom("data/hgForebrainGlut.loom")
 # vlm = vcy.VelocytoLoom("data/DentateGyrus.loom")
 labels = vlm.ca["Clusters"]
@@ -176,12 +175,22 @@ vlm.Pcs = np.array(vlm.pcs[:,:2], order="C")  # the first two axis of the pca
 # ## 注意改成constant_unspliced之后，右上角的velocity方向就明显有估计不准的
 
 # %%
+# here we have the velocity and all the normalized S and U. we should wrap this to form a dataset for the pytorch.
+# the S matrix normalized here is vlm.Sx_sz; the U matrix normalized here is vlm.Ux_sz; and the Upred is S*gamma
+# and stores the U - S*gamma in a np array - vlm.velocity
+# So we could just store the Ux_sz, the Sx_sz and the velocity
+
 # try on "constant_unspliced assumption"
 vlm.predict_U()  # basically gamma * S
 
 # velocity is Ux - Upred = Ux - gamma * S_x
 # and Ux is a normalized U, so the velocity is the difference from the real current U to the future predict U
 vlm.calculate_velocity()  # velocity is Ux - Upred = Ux - gamma * S_x
+
+np.savez('./data/DG_norm_genes.npz', Ux_sz=vlm.Ux_sz, Sx_sz=vlm.Sx_sz, velo=vlm.velocity)
+#data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
+
+# %% plot the velocity
 vlm.calculate_shift(assumption="constant_velocity")  # the numerical integration step, but basically the velocity
 vlm.extrapolate_cell_at_t(delta_t=1)  # calculate this one and then just have a look which one it looks like
 

@@ -26,3 +26,6 @@ scv.tl.velocity_graph(adata)
 scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'])
 scv.pl.velocity_embedding(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=150)
 
+
+# %% more plots
+scv.pl.velocity_graph(adata)
