@@ -1,5 +1,5 @@
 {
-    "name": "Mnist_LeNet",
+    "name": "DeepVelo_Base",
     "n_gpu": 1,
 
     "arch": {
