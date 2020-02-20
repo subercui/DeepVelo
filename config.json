@@ -3,16 +3,19 @@
     "n_gpu": 1,
 
     "arch": {
-        "type": "MnistModel",
-        "args": {}
+        "type": "VeloModel",
+        "args": {
+            "n_genes": 1448, 
+            "layers": [256, 64]
+        }
     },
     "data_loader": {
-        "type": "MnistDataLoader",
+        "type": "VeloDataLoader",
         "args":{
-            "data_dir": "data/",
+            "data_dir": "./data/DG_norm_genes.npz",
             "batch_size": 128,
             "shuffle": true,
-            "validation_split": 0.1,
+            "validation_split": 0.0,
             "num_workers": 2
         }
     },
@@ -24,9 +27,9 @@
             "amsgrad": true
         }
     },
-    "loss": "nll_loss",
+    "loss": "mse_loss",
     "metrics": [
-        "accuracy", "top_k_acc"
+        "mse"
     ],
     "lr_scheduler": {
         "type": "StepLR",
@@ -36,7 +39,7 @@
         }
     },
     "trainer": {
-        "epochs": 100,
+        "epochs": 120,
 
         "save_dir": "saved/",
         "save_period": 1,
