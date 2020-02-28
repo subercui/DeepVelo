@@ -34,6 +34,8 @@ np.savez(
 #data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
 velo_mat = np.load('./data/velo_mat.npz')
 adata.layers['velocity'] = velo_mat['velo_mat']  # (2930 cells, 1999 genes)
+# adata.layers['velocity'] = - adata.layers['velocity']
+scv.tl.velocity_graph(adata)
 
 # %% plot
 scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300, save='velo_emb_stream.pdf')
