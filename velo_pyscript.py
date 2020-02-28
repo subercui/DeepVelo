@@ -187,8 +187,10 @@ vlm.predict_U()  # basically gamma * S
 # and Ux is a normalized U, so the velocity is the difference from the real current U to the future predict U
 vlm.calculate_velocity()  # velocity is Ux - Upred = Ux - gamma * S_x
 
-np.savez('./data/DG_norm_genes.npz', Ux_sz=vlm.Ux_sz, Sx_sz=vlm.Sx_sz, velo=vlm.velocity)
+# np.savez('./data/DG_norm_genes.npz', Ux_sz=vlm.Ux_sz, Sx_sz=vlm.Sx_sz, velo=vlm.velocity)
 #data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
+velo_mat = np.load('./data/velo_mat.npz')
+vlm.velocity = velo_mat['velo_mat'].T  # (1448, 1720)
 
 # %% plot the velocity
 vlm.calculate_shift(assumption="constant_velocity")  # the numerical integration step, but basically the velocity

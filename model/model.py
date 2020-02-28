@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from base import BaseModel
@@ -20,3 +21,26 @@ class MnistModel(BaseModel):
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
+
+class VeloModel(BaseModel):
+    def __init__(self, n_genes, layers = [256, 64]):
+        super().__init__()
+        self.fc1 = nn.Linear(2*n_genes, layers[0])
+        self.fc2 = nn.Linear(layers[0], layers[1])
+        self.fc3 = nn.Linear(layers[1], 2*n_genes)
+
+    def forward(self, x_u, x_s):
+        """
+        right now it is jus mlp, and the complexity of the middle part does not make sense; 
+        Change it to the attention model and constrain the information flow
+        """
+        batch, n_gene = x_u.shape
+        # x should be (batch, features=2*n_gene)
+        x = torch.cat([x_u, x_s], dim=1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))  # (batch, 64)
+        x = self.fc3(x)  # (batch, genes*2)
+        beta = x[:, 0:n_gene] # (batch, genes)
+        gamma = x[:, n_gene:2*n_gene]
+        pred = beta * x_u + gamma * x_s
+        return pred
