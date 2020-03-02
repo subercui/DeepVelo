@@ -44,3 +44,34 @@ class VeloModel(BaseModel):
         gamma = x[:, n_gene:2*n_gene]
         pred = beta * x_u + gamma * x_s
         return pred
+
+class VeloTransformer(BaseModel):
+    def __init__(self, n_genes, layers = [2, 64], emb_dim=32):
+        super().__init__()
+        self.emb = nn.Embedding(num_embeddings=2*n_genes, embedding_dim=emb_dim)
+        self.attn = nn.MultiheadAttention(embed_dim=emb_dim, num_heads=1)
+        self.fc1 = nn.Linear(emb_dim, emb_dim)
+        self.fc2 = nn.Linear(emb_dim, layers[0])
+        self.fc3 = nn.Linear(layers[0]*2*n_genes, 2*n_genes)
+
+    def forward(self, x_u, x_s):
+        """
+        right now it is jus mlp, and the complexity of the middle part does not make sense; 
+        Change it to the attention model and constrain the information flow
+        """
+        batch, n_gene = x_u.shape
+        # x should be (batch, features=2*n_gene)
+        x = torch.cat([x_u, x_s], dim=1)
+        x = x.unsqueeze(2)  # (batch, 2*genes, 1)
+        x_emb = x * self.emb.weight  # (batch, 2*genes, emb_dim=32)
+        x_emb = F.relu(self.fc1(x_emb))  # TODO: change this to prelu
+        x_emb = x_emb.permute(1,0,2)  # (2*genes, batch, emb_dim)
+
+        x, attn_output_weights = self.attn(x_emb, x_emb, x_emb)  # (2*genes, batch, emb_dim)
+        x = x.permute(1,0,2)  # (batch, 2*genes, emb_dim=32)
+        x = F.relu(self.fc2(x)).reshape([batch, -1]) # (batch, 2*genes*d)
+        x = self.fc3(x)  # (batch, genes*2)
+        beta = x[:, 0:n_gene] # (batch, genes)
+        gamma = x[:, n_gene:2*n_gene]
+        pred = beta * x_u + gamma * x_s
+        return pred

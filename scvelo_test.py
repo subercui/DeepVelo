@@ -32,19 +32,19 @@ np.savez(
     velo=adata.layers['velocity'].T
     ) # have to input in dimmention order (1999 genes, 2930 cells)
 #data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
-velo_mat = np.load('./data/velo_mat.npz')
+velo_mat = np.load('./data/scvelo_mat.npz')
 adata.layers['velocity'] = velo_mat['velo_mat']  # (2930 cells, 1999 genes)
 # adata.layers['velocity'] = - adata.layers['velocity']
 scv.tl.velocity_graph(adata)
 
 # %% plot
-scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300, save='velo_emb_stream.pdf')
+scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300)#, save='velo_emb_stream.pdf')
 # scv.pl.velocity_embedding(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=150)
 scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save='velo_emb_grid.pdf')
 
 
 # %% more plots
-scv.pl.velocity_graph(adata)
+scv.pl.velocity_graph(adata, dpi=300, save='velo_emb_grid.pdf')
 
 
 # %% [markdown]

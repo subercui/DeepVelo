@@ -47,10 +47,26 @@ def main(config):
     trainer.train()
 
     # evaluate all and return the velocity matrix (1720, 1448)
-    velo_mat = model(data_loader.dataset.Ux_sz.cuda(), data_loader.dataset.Sx_sz.cuda()).cpu().data
+    eval_loader = getattr(module_data, config['data_loader']['type'])(
+        config['data_loader']['args']['data_dir'],
+        batch_size=32,
+        shuffle=False,
+        validation_split=0.0,
+        training=False,
+        num_workers=2
+    )
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.eval()
+    velo_mat = []
+    with torch.no_grad():
+        for batch_idx, data_dict in enumerate(eval_loader):
+            x_u, x_s, target = data_dict['Ux_sz'], data_dict['Sx_sz'], data_dict['velo']
+            x_u, x_s, target = x_u.to(device), x_s.to(device), target.to(device)
+            output = model(x_u, x_s)
+            velo_mat.append(output.cpu().data)
+        velo_mat = np.concatenate(velo_mat, axis=0)
     print('velo_mat shape:', velo_mat.shape)
-    import numpy as np
-    np.savez('./data/velo_mat.npz', velo_mat=velo_mat)
+    np.savez(f"./data/{config['online_test']}", velo_mat=velo_mat)
 
 
 if __name__ == '__main__':
