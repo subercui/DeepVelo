@@ -64,10 +64,11 @@ class VeloTransformer(BaseModel):
         x = torch.cat([x_u, x_s], dim=1)
         x = x.unsqueeze(2)  # (batch, 2*genes, 1)
         x_emb = x * self.emb.weight  # (batch, 2*genes, emb_dim=32)
-        x_emb = F.relu(self.fc1(x_emb))  # TODO: change this to prelu
+        x_emb = F.relu(self.fc1(x_emb))
         x_emb = x_emb.permute(1,0,2)  # (2*genes, batch, emb_dim)
 
         x, attn_output_weights = self.attn(x_emb, x_emb, x_emb)  # (2*genes, batch, emb_dim)
+        # TODO: try an additional activation on the attention
         x = x.permute(1,0,2)  # (batch, 2*genes, emb_dim=32)
         x = F.relu(self.fc2(x)).reshape([batch, -1]) # (batch, 2*genes*d)
         x = self.fc3(x)  # (batch, genes*2)
