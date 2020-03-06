@@ -4,6 +4,7 @@
 import sys
 import os
 import time
+import csv
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -40,6 +41,22 @@ logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(m
 
 # %%
 # Wrap implementation
+
+def make_filterarrays(ds):
+    with open('44_Human_Cells_Barcodes.tsv', 'r') as f:
+        reader = csv.reader(f, dialect='excel-tab') 
+        reader.__next__()
+        pos_cells = [row[0].split('.')[0] for row in reader]
+
+    cell_select = np.zeros(ds.ca.CellID.shape[0], dtype=np.bool)
+    for cell in pos_cells:
+        cell_select = np.logical_or(
+            cell_select, 
+            [cell in id for id in ds.ca.CellID]
+            )
+    gene_select = np.array(['mm10_' not in id for id in ds.ra.Gene])
+    return cell_select, gene_select
+
 import rpy2.robjects as robj
 from rpy2.robjects.packages import importr
 
@@ -93,15 +110,21 @@ def principal_curve(X, pca=True):
     return results
 
 # %% [markdown]
-# # Load raw data
+# # Load raw data and filter human cells and genes
 
 # %%
 # vlm = vcy.VelocytoLoom("data/hgForebrainGlut.loom")
 # vlm = vcy.VelocytoLoom("data/DentateGyrus.loom")
+
+ds = loompy.connect("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
+cell_select, gene_select = make_filterarrays(ds)
+ds.close(); del ds
 vlm = vcy.VelocytoLoom("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
-labels = vlm.ca["Clusters"]
-manual_annotation = {str(i):[i] for i in labels}
-manual_annotation
+vlm.filter_cells(cell_select)
+vlm.filter_genes(by_custom_array=gene_select)
+print(f'shape after filtering: {vlm.S.shape}')
+
+# %% preprocessing
 # Load an initial clustering (Louvein)
 labels = vlm.ca["Clusters"]
 manual_annotation = {str(i):[i] for i in labels}
@@ -113,35 +136,38 @@ vlm.set_clusters(clusters, cluster_colors_dict={k:colors20[v[0] % 20,:] for k,v 
 # just to find the initial cell size
 vlm.normalize("S", size=True, log=False)
 vlm.normalize("U", size=True,  log=False)
-
-# these two lines delete the genes that do not express that much. So brute force; After this line U / S only has 10218 genes
-vlm.score_detection_levels(min_expr_counts=30, min_cells_express=20,
-                           min_expr_counts_U=0, min_cells_express_U=0)
-vlm.filter_genes(by_detection_levels=True)  # they filter both on S, U with the same filter
-
-vlm.score_cv_vs_mean(2000, plot=True, max_expr_avg=50, winsorize=True, winsor_perc=(1,99.8), svr_gamma=0.01, min_expr_cells=50)
-
 # %% [markdown]
 # # Normalizing data
 
 # %%
+# these two lines delete the genes that do not express that much. So brute force; After this line U / S only has 10218 genes
+vlm.score_detection_levels(min_expr_counts=15, min_cells_express=10,
+                           min_expr_counts_U=15, min_cells_express_U=10)
+vlm.detection_level_selected.mean()
+vlm.filter_genes(by_detection_levels=True)  # they filter both on S, U with the same filter
+
+vlm.score_cv_vs_mean(2000, plot=True, max_expr_avg=50, winsorize=True, winsor_perc=(1,99.8), svr_gamma=0.01, min_expr_cells=50)
+plt.savefig(join(savedir, "score_cv.png"))
 vlm.filter_genes(by_cv_vs_mean=True)  # filter here again
-vlm.score_detection_levels(min_expr_counts=0, min_cells_express=0,
-                           min_expr_counts_U=25, min_cells_express_U=20)
-vlm.score_cluster_expression(min_avg_U=0.007, min_avg_S=0.06)
-vlm.filter_genes(by_detection_levels=True, by_cluster_expression=True)
+
+
+# vlm.score_detection_levels(min_expr_counts=0, min_cells_express=0,
+#                            min_expr_counts_U=25, min_cells_express_U=20)
+# vlm.score_cluster_expression(min_avg_U=0.007, min_avg_S=0.06)
+# vlm.filter_genes(by_detection_levels=True, by_cluster_expression=True)
 vlm.normalize_by_total(min_perc_U=0.5)
 vlm.adjust_totS_totU(normalize_total=True, fit_with_low_U=False, svr_C=1, svr_gamma=1e-04) # denoise again, similar to filter the expression
 
 vlm.perform_PCA()
 plt.plot(np.cumsum(vlm.pca.explained_variance_ratio_)[:100])
+plt.savefig(join(savedir, "cum_pca.png"))
 n_comps = np.where(np.diff(np.diff(np.cumsum(vlm.pca.explained_variance_ratio_))>0.0055))[0][0]
 vlm.pcs[:,1] *= -1 # flip for consistency with previous version
 
 from sklearn.neighbors import NearestNeighbors
 import igraph
 nn = NearestNeighbors(50)
-nn.fit(vlm.pcs[:,:4])
+nn.fit(vlm.pcs[:,:5])
 knn_pca = nn.kneighbors_graph(mode='distance')
 knn_pca = knn_pca.tocoo()
 G = igraph.Graph(list(zip(knn_pca.row, knn_pca.col)), directed=False, edge_attrs={'weight': knn_pca.data})
@@ -205,24 +231,24 @@ vlm.calculate_grid_arrows(smooth=0.9, steps=(25, 25), n_neighbors=200)
 
 plt.figure(None,(9,9))
 vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True},
-                     min_mass=2.9, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.8, quiver_scale=0.35, scale_type="absolute")
+                     min_mass=2.7, angles='xy', scale_units='xy',
+                     headaxislength=2.75, headlength=5, headwidth=4.8, quiver_scale=0.6, scale_type="relative")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
 plt.gca().invert_xaxis()
 plt.axis("off")
 plt.axis("equal")
+plt.colorbar()
 plt.savefig(join(savedir, "pca_plot.png"))
 
 # %% [markdown]
-# # tsne plot
+# # umap plot
 
 # %%
-from sklearn.manifold import TSNE
-bh_tsne = TSNE()
-vlm.ts = bh_tsne.fit_transform(vlm.pcs[:, :25])
-# %%
-vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="log", psc=1,
+from umap import UMAP
+bh_umap = UMAP()
+vlm.umap = bh_umap.fit_transform(vlm.Sx_sz.T)
+vlm.estimate_transition_prob(hidim="Sx_sz", embed="umap", transform="log", psc=1,
                              n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
 
 vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
@@ -230,8 +256,34 @@ vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
 plt.figure(None,(6,6),dpi=150)
 vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True},
-                     min_mass=2.9, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.4, scale_type="relative")
+                     min_mass=2.7, angles='xy', scale_units='xy',
+                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.6, scale_type="relative")
+# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
+# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
+plt.gca().invert_xaxis()
+plt.axis("off")
+plt.axis("equal");
+plt.tight_layout()
+plt.savefig(join(savedir, "umap_plot.png"))
+
+# %% [markdown]
+# # tsne plot
+
+# %%
+from sklearn.manifold import TSNE
+bh_tsne = TSNE()
+vlm.ts = bh_tsne.fit_transform(vlm.Sx_sz.T)
+# %%
+vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="log", psc=1,
+                             n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
+
+vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
+vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
+
+plt.figure(None,(9,9))
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True},
+                     min_mass=2.4, angles='xy', scale_units='xy',
+                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.6, scale_type="relative")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
 plt.gca().invert_xaxis()
