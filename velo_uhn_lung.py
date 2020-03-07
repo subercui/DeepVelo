@@ -10,6 +10,7 @@ import pandas as pd
 import matplotlib
 import loompy
 import matplotlib.pyplot as plt
+from matplotlib.collections import PathCollection
 import scipy.optimize
 import velocyto as vcy
 import glob
@@ -20,7 +21,7 @@ import pickle
 
 
 # %%
-savedir = time.strftime('%h %d-%H:%M')
+savedir = join('figures', time.strftime('%h %d-%H:%M'))
 if not os.path.exists(savedir):
     os.mkdir(savedir)
 try:
@@ -43,19 +44,31 @@ logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(m
 # Wrap implementation
 
 def make_filterarrays(ds):
-    with open('44_Human_Cells_Barcodes.tsv', 'r') as f:
+    with open('64_lc_leiden_barcode_cluster.tsv', 'r') as f:
         reader = csv.reader(f, dialect='excel-tab') 
         reader.__next__()
-        pos_cells = [row[0].split('.')[0] for row in reader]
+        pos_cells = []
+        clusters = []
+        for row in reader:
+            pos_cells.append(row[0].split('.')[0])
+            clusters.append(int(row[1]))
 
     cell_select = np.zeros(ds.ca.CellID.shape[0], dtype=np.bool)
-    for cell in pos_cells:
-        cell_select = np.logical_or(
-            cell_select, 
-            [cell in id for id in ds.ca.CellID]
-            )
+    _clusters = np.zeros(ds.ca.CellID.shape[0], dtype='int64')
+    for i in range(len(pos_cells)):
+        cell = pos_cells[i]
+        for j in range(ds.ca.CellID.shape[0]):
+            if cell in ds.ca.CellID[j]:
+                cell_select[j] = True
+                _clusters[j] = clusters[i]
+                continue
+    # for cell in pos_cells:
+    #     cell_select = np.logical_or(
+    #         cell_select, 
+    #         [cell in id for id in ds.ca.CellID]
+    #         )
     gene_select = np.array(['mm10_' not in id for id in ds.ra.Gene])
-    return cell_select, gene_select
+    return cell_select, gene_select, _clusters
 
 import rpy2.robjects as robj
 from rpy2.robjects.packages import importr
@@ -117,9 +130,10 @@ def principal_curve(X, pca=True):
 # vlm = vcy.VelocytoLoom("data/DentateGyrus.loom")
 
 ds = loompy.connect("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
-cell_select, gene_select = make_filterarrays(ds)
+cell_select, gene_select, _clusters = make_filterarrays(ds)
 ds.close(); del ds
 vlm = vcy.VelocytoLoom("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
+vlm.ca["Clusters"] = np.asarray(_clusters, dtype='int64')
 vlm.filter_cells(cell_select)
 vlm.filter_genes(by_custom_array=gene_select)
 print(f'shape after filtering: {vlm.S.shape}')
@@ -163,27 +177,6 @@ plt.plot(np.cumsum(vlm.pca.explained_variance_ratio_)[:100])
 plt.savefig(join(savedir, "cum_pca.png"))
 n_comps = np.where(np.diff(np.diff(np.cumsum(vlm.pca.explained_variance_ratio_))>0.0055))[0][0]
 vlm.pcs[:,1] *= -1 # flip for consistency with previous version
-
-from sklearn.neighbors import NearestNeighbors
-import igraph
-nn = NearestNeighbors(50)
-nn.fit(vlm.pcs[:,:5])
-knn_pca = nn.kneighbors_graph(mode='distance')
-knn_pca = knn_pca.tocoo()
-G = igraph.Graph(list(zip(knn_pca.row, knn_pca.col)), directed=False, edge_attrs={'weight': knn_pca.data})
-VxCl = G.community_multilevel(return_levels=False, weights="weight")
-labels = np.array(VxCl.membership)
-
-from numpy_groupies import aggregate, aggregate_np
-pc_obj = principal_curve(vlm.pcs[:,:4], False)
-pc_obj.arclength = np.max(pc_obj.arclength) - pc_obj.arclength  # transfer from distance to similarity
-labels = np.argsort(np.argsort(aggregate_np(labels, pc_obj.arclength, func=np.median)))[labels]
-
-manual_annotation = {str(i):[i] for i in labels}
-annotation_dict = {v:k for k, values in manual_annotation.items() for v in values }
-clusters = np.array([annotation_dict[i] for i in labels])
-colors20 = np.vstack((plt.cm.tab20b(np.linspace(0., 1, 20))[::2], plt.cm.tab20c(np.linspace(0, 1, 20))[1::2]))  # this is just setting colors
-vlm.set_clusters(clusters, cluster_colors_dict={k:colors20[v[0] % 20,:] for k,v in manual_annotation.items()})
 
 k = 550
 # you have a knn computing from some pca
@@ -230,7 +223,7 @@ vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(25, 25), n_neighbors=200)
 
 plt.figure(None,(9,9))
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True},
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":labels},
                      min_mass=2.7, angles='xy', scale_units='xy',
                      headaxislength=2.75, headlength=5, headwidth=4.8, quiver_scale=0.6, scale_type="relative")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
@@ -238,7 +231,9 @@ vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.
 plt.gca().invert_xaxis()
 plt.axis("off")
 plt.axis("equal")
-plt.colorbar()
+scatter = plt.findobj(match=PathCollection)[0]
+# scatter.set_array(clusters.astype('int64'))
+plt.legend(*scatter.legend_elements())
 plt.savefig(join(savedir, "pca_plot.png"))
 
 # %% [markdown]
@@ -255,7 +250,7 @@ vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
 plt.figure(None,(6,6),dpi=150)
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True},
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True, "c":labels},
                      min_mass=2.7, angles='xy', scale_units='xy',
                      headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.6, scale_type="relative")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
@@ -263,6 +258,8 @@ vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.
 plt.gca().invert_xaxis()
 plt.axis("off")
 plt.axis("equal");
+scatter = plt.findobj(match=PathCollection)[0]
+plt.legend(*scatter.legend_elements())
 plt.tight_layout()
 plt.savefig(join(savedir, "umap_plot.png"))
 
@@ -273,7 +270,6 @@ plt.savefig(join(savedir, "umap_plot.png"))
 from sklearn.manifold import TSNE
 bh_tsne = TSNE()
 vlm.ts = bh_tsne.fit_transform(vlm.Sx_sz.T)
-# %%
 vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="log", psc=1,
                              n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
 
@@ -281,7 +277,7 @@ vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
 plt.figure(None,(9,9))
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True},
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True, "c":labels},
                      min_mass=2.4, angles='xy', scale_units='xy',
                      headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.6, scale_type="relative")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
@@ -289,6 +285,8 @@ vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.
 plt.gca().invert_xaxis()
 plt.axis("off")
 plt.axis("equal");
+scatter = plt.findobj(match=PathCollection)[0]
+plt.legend(*scatter.legend_elements())
 plt.tight_layout()
 plt.savefig(join(savedir, "tsne_plot.png"))
 
