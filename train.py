@@ -25,7 +25,7 @@ def main(config):
     valid_data_loader = data_loader.split_validation()
 
     # build model architecture, then print to console
-    model = config.init_obj('arch', module_arch)
+    model = config.init_obj('arch', module_arch, g=data_loader.dataset.g)
     logger.info(model)
 
     # get function handles of loss and metrics
@@ -49,7 +49,7 @@ def main(config):
     # evaluate all and return the velocity matrix (1720, 1448)
     eval_loader = getattr(module_data, config['data_loader']['type'])(
         config['data_loader']['args']['data_dir'],
-        batch_size=32,
+        batch_size=2930,
         shuffle=False,
         validation_split=0.0,
         training=False,

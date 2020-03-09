@@ -3,18 +3,18 @@
     "n_gpu": 1,
 
     "arch": {
-        "type": "VeloTransformer",
+        "type": "VeloGCN",
         "args": {
             "n_genes": 1999, 
-            "layers": [2, 64]
+            "layers": [64]
         }
     },
     "data_loader": {
         "type": "VeloDataLoader",
         "args":{
             "data_dir": "./data/scveloDG.npz",
-            "batch_size": 32,
-            "shuffle": true,
+            "batch_size": 2930,
+            "shuffle": false,
             "validation_split": 0.0,
             "num_workers": 2
         }
@@ -40,7 +40,7 @@
         }
     },
     "trainer": {
-        "epochs": 10,
+        "epochs": 90,
 
         "save_dir": "saved/",
         "save_period": 30,

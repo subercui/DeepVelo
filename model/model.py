@@ -76,3 +76,42 @@ class VeloTransformer(BaseModel):
         gamma = x[:, n_gene:2*n_gene]
         pred = beta * x_u + gamma * x_s
         return pred
+
+
+from dgl.nn.pytorch import GraphConv
+class VeloGCN(BaseModel):
+    def __init__(self,
+                 g,
+                 n_genes,
+                 layers = [64],
+                 activation =F.relu):
+        super(VeloGCN, self).__init__()
+        self.g = g # the graph  
+        self.layers = nn.ModuleList()
+        # input layer
+        self.layers.append(GraphConv(n_genes*2, layers[0], activation=activation))
+        # hidden layers
+        for i in range(len(layers) - 1):
+            self.layers.append(GraphConv(layers[i], layers[i+1], activation=activation))
+        # output layer
+        self.layers.append(GraphConv(layers[-1], n_genes*2))
+
+    def forward(self, x_u, x_s):
+        """
+        right now it is jus mlp, and the complexity of the middle part does not make sense; 
+        Change it to the attention model and constrain the information flow
+        """
+        batch, n_gene = x_u.shape
+        # h should be (batch, features=2*n_gene)
+        h = torch.cat([x_u, x_s], dim=1) # features
+        for i, layer in enumerate(self.layers):
+            h = layer(self.g, h)
+        x = h
+
+        # x = F.relu(self.fc1(x))
+        # x = F.relu(self.fc2(x))  # (batch, 64)
+        # x = self.fc3(x)  # (batch, genes*2)
+        beta = x[:, 0:n_gene] # (batch, genes)
+        gamma = x[:, n_gene:2*n_gene]
+        pred = beta * x_u + gamma * x_s
+        return pred
