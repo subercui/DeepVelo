@@ -49,18 +49,22 @@ def make_filterarrays(ds):
         reader.__next__()
         pos_cells = []
         clusters = []
+        coord = []
         for row in reader:
             pos_cells.append(row[0].split('.')[0])
+            coord.append((-float(row[1]), float(row[2])))
             clusters.append(int(row[3]))
 
     cell_select = np.zeros(ds.ca.CellID.shape[0], dtype=np.bool)
     _clusters = np.zeros(ds.ca.CellID.shape[0], dtype='int64')
+    _coord = np.zeros([ds.ca.CellID.shape[0], 2])
     for i in range(len(pos_cells)):
         cell = pos_cells[i]
         for j in range(ds.ca.CellID.shape[0]):
             if cell in ds.ca.CellID[j]:
                 cell_select[j] = True
                 _clusters[j] = clusters[i]
+                _coord[j] = coord[i]
                 continue
     # for cell in pos_cells:
     #     cell_select = np.logical_or(
@@ -68,7 +72,8 @@ def make_filterarrays(ds):
     #         [cell in id for id in ds.ca.CellID]
     #         )
     gene_select = np.array(['mm10_' not in id for id in ds.ra.Gene])
-    return cell_select, gene_select, _clusters
+    _coord = _coord[cell_select]
+    return cell_select, gene_select, _clusters, _coord
 
 def _plot():
     vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.3", "s":36, "rasterized":True, "c":labels, "cmap":"Paired"},
@@ -143,11 +148,10 @@ def principal_curve(X, pca=True):
 # vlm = vcy.VelocytoLoom("data/DentateGyrus.loom")
 
 # ds = loompy.connect("/cluster/projects/bwanggroup/for_haotian/velocyto/76_merged_hg_sub/velocyto/76_merged_hg_sub.loom")
-ds = loompy.connect("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
-cell_select, gene_select, _clusters = make_filterarrays(ds)
-ds.close(); del ds
 vlm = vcy.VelocytoLoom("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
-vlm.ca["Clusters"] = np.asarray(_clusters, dtype='int64')
+ds = loompy.connect("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
+cell_select, gene_select, vlm.ca["Clusters"], vlm._coord = make_filterarrays(ds)
+ds.close(); del ds
 vlm.filter_cells(cell_select)
 vlm.filter_genes(by_custom_array=gene_select)
 print(f'shape after filtering: {vlm.S.shape}')
@@ -175,7 +179,7 @@ vlm.detection_level_selected.mean()
 vlm.filter_genes(by_detection_levels=True)  # they filter both on S, U with the same filter
 
 vlm.score_cv_vs_mean(2000, plot=True, max_expr_avg=50, winsorize=True, winsor_perc=(1,99.8), svr_gamma=0.01, min_expr_cells=50)
-plt.savefig(join(savedir, "score_cv.png"))
+# plt.savefig(join(savedir, "score_cv.png"))
 vlm.filter_genes(by_cv_vs_mean=True)  # filter here again
 
 
@@ -188,7 +192,7 @@ vlm.adjust_totS_totU(normalize_total=True, fit_with_low_U=False, svr_C=1, svr_ga
 
 vlm.perform_PCA()
 plt.plot(np.cumsum(vlm.pca.explained_variance_ratio_)[:100])
-plt.savefig(join(savedir, "cum_pca.png"))
+# plt.savefig(join(savedir, "cum_pca.png"))
 n_comps = np.where(np.diff(np.diff(np.cumsum(vlm.pca.explained_variance_ratio_))>0.0055))[0][0]
 vlm.pcs[:,1] *= -1 # flip for consistency with previous version
 
@@ -256,6 +260,17 @@ vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 plt.figure(None, (6,6), dpi=150)
 _plot()
 plt.savefig(join(savedir, "umap_plot.png"))
+
+# plot on the loaded coordinates - vlm._umap
+vlm.estimate_transition_prob(hidim="Sx_sz", embed="_coord", transform="log", psc=1,
+                             n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
+
+vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
+vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
+
+plt.figure(None, (6,6), dpi=150)
+_plot()
+plt.savefig(join(savedir, "umap-load_plot.png"))
 
 # %% [markdown]
 # # tsne plot
