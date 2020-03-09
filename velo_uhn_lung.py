@@ -44,14 +44,14 @@ logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(m
 # Wrap implementation
 
 def make_filterarrays(ds):
-    with open('64_lc_leiden_barcode_cluster.tsv', 'r') as f:
+    with open('64_lc_leiden_barcode_umap_cluster.tsv', 'r') as f:
         reader = csv.reader(f, dialect='excel-tab') 
         reader.__next__()
         pos_cells = []
         clusters = []
         for row in reader:
             pos_cells.append(row[0].split('.')[0])
-            clusters.append(int(row[1]))
+            clusters.append(int(row[3]))
 
     cell_select = np.zeros(ds.ca.CellID.shape[0], dtype=np.bool)
     _clusters = np.zeros(ds.ca.CellID.shape[0], dtype='int64')
@@ -69,6 +69,19 @@ def make_filterarrays(ds):
     #         )
     gene_select = np.array(['mm10_' not in id for id in ds.ra.Gene])
     return cell_select, gene_select, _clusters
+
+def _plot():
+    vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.3", "s":36, "rasterized":True, "c":labels, "cmap":"Paired"},
+                        min_mass=2.7, angles='xy', scale_units='xy',
+                        headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.6, scale_type="relative")
+    # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
+    # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
+    plt.gca().invert_xaxis()
+    plt.axis("off")
+    plt.axis("equal");
+    scatter = plt.findobj(match=PathCollection)[0]
+    plt.legend(*scatter.legend_elements())
+    plt.tight_layout()
 
 import rpy2.robjects as robj
 from rpy2.robjects.packages import importr
@@ -129,6 +142,7 @@ def principal_curve(X, pca=True):
 # vlm = vcy.VelocytoLoom("data/hgForebrainGlut.loom")
 # vlm = vcy.VelocytoLoom("data/DentateGyrus.loom")
 
+# ds = loompy.connect("/cluster/projects/bwanggroup/for_haotian/velocyto/76_merged_hg_sub/velocyto/76_merged_hg_sub.loom")
 ds = loompy.connect("/cluster/projects/bwanggroup/for_haotian/velocyto/50_sample_concat/velocyto/50_sample_concat.loom")
 cell_select, gene_select, _clusters = make_filterarrays(ds)
 ds.close(); del ds
@@ -222,18 +236,8 @@ vlm.estimate_transition_prob(hidim="Sx_sz", embed="Pcs", transform="log", psc=1,
 vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(25, 25), n_neighbors=200)
 
-plt.figure(None,(9,9))
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":labels},
-                     min_mass=2.7, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.8, quiver_scale=0.6, scale_type="relative")
-# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
-# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
-plt.gca().invert_xaxis()
-plt.axis("off")
-plt.axis("equal")
-scatter = plt.findobj(match=PathCollection)[0]
-# scatter.set_array(clusters.astype('int64'))
-plt.legend(*scatter.legend_elements())
+plt.figure(None, (6,6), dpi=150)
+_plot()
 plt.savefig(join(savedir, "pca_plot.png"))
 
 # %% [markdown]
@@ -249,18 +253,8 @@ vlm.estimate_transition_prob(hidim="Sx_sz", embed="umap", transform="log", psc=1
 vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
-plt.figure(None,(6,6),dpi=150)
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True, "c":labels},
-                     min_mass=2.7, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.6, scale_type="relative")
-# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
-# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
-plt.gca().invert_xaxis()
-plt.axis("off")
-plt.axis("equal");
-scatter = plt.findobj(match=PathCollection)[0]
-plt.legend(*scatter.legend_elements())
-plt.tight_layout()
+plt.figure(None, (6,6), dpi=150)
+_plot()
 plt.savefig(join(savedir, "umap_plot.png"))
 
 # %% [markdown]
@@ -277,7 +271,7 @@ vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
 plt.figure(None,(9,9))
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True, "c":labels},
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":40, "rasterized":True, "c":labels, "cmap":"Paired"},
                      min_mass=2.4, angles='xy', scale_units='xy',
                      headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.6, scale_type="relative")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
@@ -291,21 +285,17 @@ plt.tight_layout()
 plt.savefig(join(savedir, "tsne_plot.png"))
 
 
-# %%
-vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="sqrt", psc=1,
-                             n_neighbors=150, knn_random=True, sampled_fraction=1)
-vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=True)
+# %% umap pca 30
+from umap import UMAP
+bh_umap = UMAP()
+vlm.umap = bh_umap.fit_transform(vlm.pcs[:,:30])
+vlm.estimate_transition_prob(hidim="Sx_sz", embed="umap", transform="log", psc=1,
+                             n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
 
+vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
+vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
-# %%
-vlm.calculate_grid_arrows(smooth=0.8, steps=(40, 40), n_neighbors=300)
-plt.figure(None,(20,10))
-vlm.plot_grid_arrows(quiver_scale=0.6,
-                    scatter_kwargs_dict={"alpha":0.35, "lw":0.35, "edgecolor":"0.4", "s":38, "rasterized":True}, min_mass=24, angles='xy', scale_units='xy',
-                    headaxislength=2.75, headlength=5, headwidth=4.8, minlength=1.5,
-                    plot_random=True, scale_type="absolute")
-
-
-# %%
-
+plt.figure(None, (6,6), dpi=150)
+_plot()
+plt.savefig(join(savedir, "umap-pca30_plot.png"))
 
