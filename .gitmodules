@@ -1,0 +1,3 @@
+[submodule "simulator/dyngen_manuscript"]
+	path = simulator/dyngen_manuscript
+	url = git@github.com:dynverse/dyngen_manuscript.git
