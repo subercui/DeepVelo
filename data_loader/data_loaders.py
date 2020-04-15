@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 import numpy as np
 from sklearn.metrics import pairwise_distances
 import dgl
+from dgl.contrib.sampling import NeighborSampler
 
 class VeloDataset(Dataset):
     def __init__(self, data_dir, train=True):
@@ -81,6 +82,59 @@ class VeloDataLoader(BaseDataLoader):
         self.dataset = VeloDataset(self.data_dir, train=training)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
+class VeloNeighborSampler(NeighborSampler, BaseDataLoader):
+    """
+    minibatch neighbor sampler using DGL NeighborSampler
+    """
+    def __init__(
+        self,
+        data_dir,
+        batch_size,
+        num_neighbors,
+        num_hops,
+        shuffle=True,
+        validation_split=0.0,
+        num_workers=32,
+        training=True
+    ):
+        self.data_dir = data_dir
+        self.dataset = VeloDataset(self.data_dir, train=training)
+        # FIXME: the split_validation here is not working as in the BaseDataLoader
+        # BaseDataLoader.__init__(self, self.dataset, batch_size, shuffle, validation_split, num_workers)
+        
+        g = self.dataset.g
+        norm = 1. / g.in_degrees().float().unsqueeze(1)
+        g.ndata['Ux_sz'] = self.dataset.Ux_sz 
+        g.ndata['Sx_sz'] = self.dataset.Sx_sz
+        g.ndata['velo'] = self.dataset.velo
+        g.ndata['norm'] = norm
+        # need to set to readonly for nodeflow
+        g.readonly()
+
+        NeighborSampler.__init__(
+            self,
+            g, batch_size,
+            num_neighbors,
+            neighbor_type='in',
+            shuffle=shuffle,
+            num_workers=num_workers,
+            num_hops=num_hops,
+            #  seed_nodes=train_nid
+        )
+
+    #FIXME: the split_validation here is not working as in the BaseDataLoader
+    def split_validation(self):
+        return None
+
+    def __len__(self):
+        return self.dataset.__len__()
+
 
 if __name__ == '__main__':
     VeloDataset('./data/DG_norm_genes.npz')
+    VeloNeighborSampler(
+        './data/DG_norm_genes.npz',
+        32,
+        15,
+        4
+    )

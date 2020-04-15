@@ -47,22 +47,17 @@ def main(config):
     trainer.train()
 
     # evaluate all and return the velocity matrix (1720, 1448)
-    eval_loader = getattr(module_data, config['data_loader']['type'])(
-        config['data_loader']['args']['data_dir'],
-        batch_size=2930,
-        shuffle=False,
-        validation_split=0.0,
-        training=False,
-        num_workers=2
-    )
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    config_copy = config['data_loader']['args'].copy()
+    config_copy.update(
+            shuffle=False,
+            training=False
+        )
+    eval_loader = getattr(module_data, config['data_loader']['type'])(**config_copy)
     model.eval()
     velo_mat = []
     with torch.no_grad():
-        for batch_idx, data_dict in enumerate(eval_loader):
-            x_u, x_s, target = data_dict['Ux_sz'], data_dict['Sx_sz'], data_dict['velo']
-            x_u, x_s, target = x_u.to(device), x_s.to(device), target.to(device)
-            output = model(x_u, x_s)
+        for batch_idx, batch_data in enumerate(eval_loader):
+            output, _ = trainer._compute_core(batch_data)
             velo_mat.append(output.cpu().data)
         velo_mat = np.concatenate(velo_mat, axis=0)
     print('velo_mat shape:', velo_mat.shape)
