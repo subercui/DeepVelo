@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import dgl
 from torchvision.utils import make_grid
 from base import BaseTrainer
 from utils import inf_loop, MetricTracker
@@ -29,6 +30,24 @@ class Trainer(BaseTrainer):
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
 
+    def _compute_core(self, batch_data):
+        if isinstance(batch_data, dgl.nodeflow.NodeFlow):
+            nf = batch_data
+            nf.copy_from_parent()
+            nf.layers[0].data['Ux_sz'] = nf.layers[0].data['Ux_sz'].to(self.device)
+            nf.layers[0].data['Sx_sz'] = nf.layers[0].data['Sx_sz'].to(self.device)
+            nf.layers[-1].data['Ux_sz'] = nf.layers[-1].data['Ux_sz'].to(self.device)
+            nf.layers[-1].data['Sx_sz'] = nf.layers[-1].data['Sx_sz'].to(self.device)
+            target = nf.layers[-1].data['velo'].to(self.device)
+            output = self.model(nf)
+        else:
+            data_dict = batch_data
+            x_u, x_s, target = data_dict['Ux_sz'], data_dict['Sx_sz'], data_dict['velo']
+            x_u, x_s, target = x_u.to(self.device), x_s.to(self.device), target.to(self.device)
+
+            output = self.model(x_u, x_s)
+        return output, target
+
     def _train_epoch(self, epoch):
         """
         Training logic for an epoch
@@ -38,12 +57,9 @@ class Trainer(BaseTrainer):
         """
         self.model.train()
         self.train_metrics.reset()
-        for batch_idx, data_dict in enumerate(self.data_loader):
-            x_u, x_s, target = data_dict['Ux_sz'], data_dict['Sx_sz'], data_dict['velo']
-            x_u, x_s, target = x_u.to(self.device), x_s.to(self.device), target.to(self.device)
-
+        for batch_idx, batch_data in enumerate(self.data_loader):
+            output, target = self._compute_core(batch_data)
             self.optimizer.zero_grad()
-            output = self.model(x_u, x_s)
             loss = self.criterion(output, target)
             loss.backward()
             self.optimizer.step()
@@ -82,10 +98,8 @@ class Trainer(BaseTrainer):
         self.model.eval()
         self.valid_metrics.reset()
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data, target = data.to(self.device), target.to(self.device)
-
-                output = self.model(data)
+            for batch_idx, batch_data in enumerate(self.valid_data_loader):
+                output, target = self._compute_core(batch_data)
                 loss = self.criterion(output, target)
 
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
