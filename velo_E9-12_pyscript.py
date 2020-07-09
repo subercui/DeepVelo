@@ -11,13 +11,13 @@ import pandas as pd
 import matplotlib
 import loompy
 import matplotlib.pyplot as plt
+from matplotlib.collections import PathCollection
 import scipy.optimize
 import velocyto as vcy
 import glob
 from sklearn.decomposition import PCA
 from scipy.spatial.distance import pdist, squareform
 import pickle
-import pixiedust
 from IPython.core.display import display, HTML
 display(HTML("<style>.container { width:90% !important; }</style>"))
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -41,6 +41,44 @@ logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(m
 # Wrap implementation
 import rpy2.robjects as robj
 from rpy2.robjects.packages import importr
+colors20 = np.vstack((plt.cm.tab20b(np.linspace(0., 1, 20))[::2], plt.cm.tab20c(np.linspace(0, 1, 20))[1::2]))
+def colormap_fun(x: np.ndarray) -> np.ndarray:
+    return colors20[np.mod(x, 20)]
+
+def add_additional_loom(vlm_base, loom_to_add, label=1):
+    vlm_add = vcy.VelocytoLoom(loom_to_add)
+    assert vlm_base.S.shape[0] == vlm_add.S.shape[0] # same num of genes
+    num_base_cells = vlm_base.S.shape[1]
+    num_add_cells = vlm_add.S.shape[1]
+
+    #merge
+    vlm_base.S = np.concatenate([vlm_base.S, vlm_add.S], axis=1)
+    vlm_base.U = np.concatenate([vlm_base.U, vlm_add.U], axis=1)
+    vlm_base.A = np.concatenate([vlm_base.A, vlm_add.A], axis=1)
+    vlm_base.ca['CellID'] = np.concatenate(
+        [vlm_base.ca['CellID'], vlm_add.ca['CellID']], axis=0)
+    vlm_base.initial_cell_size = np.concatenate(
+        [vlm_base.initial_cell_size, vlm_add.initial_cell_size], axis=0)
+    vlm_base.initial_Ucell_size = np.concatenate(
+        [vlm_base.initial_Ucell_size, vlm_add.initial_Ucell_size], axis=0)
+    assert vlm_base.ca['cluster'] is not None
+    vlm_base.ca['cluster'] = np.concatenate(
+        [vlm_base.ca['cluster'], np.array([label]*num_add_cells, dtype=int)], axis=0)
+    return vlm_base
+
+def down_sample(vlm, max_cells):
+    num_cells = vlm.S.shape[1]
+    if num_cells <= max_cells:
+        return vlm
+    select_ids = np.random.permutation(num_cells)[:max_cells]
+    vlm.S = vlm.S[:, select_ids]
+    vlm.U = vlm.U[:, select_ids]
+    vlm.A = vlm.A[:, select_ids]
+    vlm.ca['CellID'] = vlm.ca['CellID'][select_ids]
+    vlm.initial_cell_size = vlm.initial_cell_size[select_ids]
+    vlm.initial_Ucell_size = vlm.initial_Ucell_size[select_ids]
+    vlm.ca['cluster'] = vlm.ca['cluster'][select_ids]
+    return vlm
 
 def array_to_rmatrix(X):
     nr, nc = X.shape
@@ -96,6 +134,12 @@ def principal_curve(X, pca=True):
 
 # %%
 vlm = vcy.VelocytoLoom("E9F1_loom/possorted_genome_bam_0OM4Q.loom")
+num_cells = vlm.S.shape[1]
+vlm.ca['cluster'] = np.array([0]*num_cells, dtype=int)
+vlm = add_additional_loom(vlm, "E10F1_loom/possorted_genome_bam_0DOBR.loom", label=1)
+vlm = add_additional_loom(vlm, "E11F1_loom/possorted_genome_bam_983X8.loom", label=2)
+# down sample
+vlm = down_sample(vlm, max_cells=20000)
 lineage_mask = np.zeros(len(vlm.ca['CellID']), dtype=bool)
 lineage_barcodes = open('barcodes_tumor_lineage_barcodes_F_glia_barcodes.txt','r').read()
 for i in range(len(lineage_mask)):
@@ -103,6 +147,7 @@ for i in range(len(lineage_mask)):
     if cell_code in lineage_barcodes:
         lineage_mask[i] = True
 vlm.filter_cells(lineage_mask)
+vlm.colorandum = colormap_fun(vlm.ca['cluster'])
 # vlm = vcy.VelocytoLoom("data/DentateGyrus.loom")
 # labels = vlm.ca["Clusters"]
 # manual_annotation = {str(i):[i] for i in labels}
@@ -208,22 +253,29 @@ if not 'colorandum' in dir(vlm):
 vlm.calculate_shift(assumption="constant_velocity")  # the numerical integration step, but basically the velocity
 vlm.extrapolate_cell_at_t(delta_t=1)  # calculate this one and then just have a look which one it looks like
 
+
+kw = dict(prop="colors", fmt="E{x:02d}", func=lambda c: c.astype(int)+9)
+
 vlm.estimate_transition_prob(hidim="Sx_sz", embed="Pcs", transform="log", psc=1,
                              n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
 
 vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(25, 25), n_neighbors=200)
 
-plt.figure(None,(9,9))
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.4, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True},
+plt.figure(None,(9,9), dpi=300)
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.6, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":vlm.ca['cluster'], "cmap":"Paired"},
                      min_mass=2.9, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.8, quiver_scale=0.6, scale_type="absolute")
+                     headaxislength=2.75, headlength=5, headwidth=4.8, quiver_scale=0.3, scale_type="absolute")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
 plt.gca().invert_xaxis()
 plt.axis("off")
 plt.axis("equal");
-plt.savefig("E9F1_pca_velocity.png")
+scatter = plt.findobj(match=PathCollection)[0]
+plt.legend(*scatter.legend_elements(**kw))
+plt.title("E9-11F1_pca_velocity")
+plt.tight_layout()
+plt.savefig("E9-11F1_pca_velocity.png")
 
 # %% [markdown]
 # # tsne plot
@@ -239,20 +291,21 @@ vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="log", psc=1,
 vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
 vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
-from matplotlib.collections import PathCollection
 plt.figure(None,(12,12),dpi=300)
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True},
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":vlm.ca['cluster'], "cmap":"Paired"},
                      min_mass=2.9, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.35, scale_type="absolute")
+                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.22, scale_type="absolute")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
 plt.gca().invert_xaxis()
 plt.axis("off")
 plt.axis("equal");
 scatter = plt.findobj(match=PathCollection)[0]
-plt.legend(*scatter.legend_elements())
+plt.legend(*scatter.legend_elements(**kw))
 plt.tight_layout()
-plt.savefig("E10F1_tsne_velocity.png")
+plt.title("E9-11F1_tsne_velocity")
+plt.savefig("E9-11F1_tsne_velocity.png")
+
 
 # %%
 vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="sqrt", psc=1,
@@ -269,6 +322,33 @@ vlm.plot_grid_arrows(quiver_scale=0.6,
                     plot_random=True, scale_type="absolute")
 
 
-# %%
+# %% umap
+import umap
+umapper = umap.UMAP(
+    n_neighbors=60,  # 15
+    min_dist=0.6,  # 0.1
+)
+vlm.umap = umapper.fit_transform(vlm.pcs[:, :25])
 
+
+vlm.estimate_transition_prob(hidim="Sx_sz", embed="umap", transform="log", psc=1,
+                             n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
+
+vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
+vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
+
+plt.figure(None,(12,12),dpi=300)
+vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":vlm.ca['cluster'], "cmap":"Paired"},
+                     min_mass=2.9, angles='xy', scale_units='xy',
+                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.9, scale_type="absolute")
+# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
+# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
+plt.gca().invert_xaxis()
+plt.axis("off")
+plt.axis("equal");
+scatter = plt.findobj(match=PathCollection)[0]
+plt.legend(*scatter.legend_elements(**kw))
+plt.title("E9-11F1_umap_velocity")
+plt.tight_layout()
+plt.savefig("E9-11F1_umap_velocity.png")
 

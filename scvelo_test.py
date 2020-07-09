@@ -49,3 +49,31 @@ scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
 
 # %% [markdown]
 # # Have a try on the velocyto's data
+
+# %% Try to run evaluations
+
+# prepare cluster labels
+all_labels = adata.obs.clusters.to_numpy()
+list_granule_immature = all_labels == 'Granule immature'
+list_granule_mature = all_labels == 'Granule mature'
+velos_grabule_immature = adata.layers['velocity'][list_granule_immature]
+velos_grabule_mature = adata.layers['velocity'][list_granule_mature]
+
+# get the average velocity
+ave_velo_grabule_immature = velos_grabule_immature.mean(0)  # (1999,)
+ave_velo_grabule_mature = velos_grabule_mature.mean(0)  # (1999,)
+
+# metric 1: relative variance of cosine similarity within cluster
+from sklearn import preprocessing
+def metric1(data):
+    norm_data = preprocessing.normalize(data, axis=1)
+    var_cos = (norm_data@norm_data.T).var()
+    return var_cos
+var_velo_grabule_immature = metric1(velos_grabule_immature)
+var_velo_grabule_mature = metric1(velos_grabule_mature)
+print(f"metric 1:")
+print(f"var of cosine similarity with in Grabule Immature Cells: {var_velo_grabule_immature}")
+# print(f"var of cosine similarity with in Grabule mature Cells: {var_velo_grabule_mature}")
+
+# metric 2:
+# %%
