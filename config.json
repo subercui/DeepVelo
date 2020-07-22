@@ -5,21 +5,21 @@
     "arch": {
         "type": "VeloGCN",
         "args": {
-            "n_genes": 1999, 
+            "n_genes": 2001, 
             "layers": [64]
         }
     },
     "data_loader": {
         "type": "VeloDataLoader",
         "args":{
-            "data_dir": "./data/scveloDG.npz",
-            "batch_size": 2930,
+            "data_dir": "./data/DG_norm_genes.npz",
+            "batch_size": 12217,
             "shuffle": false,
             "validation_split": 0.0,
             "num_workers": 2
         }
     },
-    "online_test": "scvelo_mat.npz",
+    "online_test": "velo_mat_E9-11.npz",
     "optimizer": {
         "type": "Adam",
         "args":{
@@ -40,7 +40,7 @@
         }
     },
     "trainer": {
-        "epochs": 90,
+        "epochs": 10,
 
         "save_dir": "saved/",
         "save_period": 30,
