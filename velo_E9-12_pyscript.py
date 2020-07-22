@@ -20,7 +20,7 @@ from scipy.spatial.distance import pdist, squareform
 import pickle
 from IPython.core.display import display, HTML
 display(HTML("<style>.container { width:90% !important; }</style>"))
-get_ipython().run_line_magic('matplotlib', 'inline')
+# get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 # %%
@@ -190,27 +190,27 @@ n_comps = np.where(np.diff(np.diff(np.cumsum(vlm.pca.explained_variance_ratio_))
 vlm.pcs[:,1] *= -1 # flip for consistency with previous version
 
 # %% unsupervised clustering
-from sklearn.neighbors import NearestNeighbors
-import igraph
-nn = NearestNeighbors(50)
-nn.fit(vlm.pcs[:,:4])
-knn_pca = nn.kneighbors_graph(mode='distance')
-knn_pca = knn_pca.tocoo()
-G = igraph.Graph(list(zip(knn_pca.row, knn_pca.col)), directed=False, edge_attrs={'weight': knn_pca.data})
-VxCl = G.community_multilevel(return_levels=False, weights="weight")
-labels = np.array(VxCl.membership)
+# from sklearn.neighbors import NearestNeighbors
+# import igraph
+# nn = NearestNeighbors(50)
+# nn.fit(vlm.pcs[:,:4])
+# knn_pca = nn.kneighbors_graph(mode='distance')
+# knn_pca = knn_pca.tocoo()
+# G = igraph.Graph(list(zip(knn_pca.row, knn_pca.col)), directed=False, edge_attrs={'weight': knn_pca.data})
+# VxCl = G.community_multilevel(return_levels=False, weights="weight")
+# labels = np.array(VxCl.membership)
 
-from numpy_groupies import aggregate, aggregate_np
-pc_obj = principal_curve(vlm.pcs[:,:4], False)
-pc_obj.arclength = np.max(pc_obj.arclength) - pc_obj.arclength  # transfer from distance to similarity
-labels = np.argsort(np.argsort(aggregate_np(labels, pc_obj.arclength, func=np.median)))[labels]
+# from numpy_groupies import aggregate, aggregate_np
+# pc_obj = principal_curve(vlm.pcs[:,:4], False)
+# pc_obj.arclength = np.max(pc_obj.arclength) - pc_obj.arclength  # transfer from distance to similarity
+# labels = np.argsort(np.argsort(aggregate_np(labels, pc_obj.arclength, func=np.median)))[labels]
 
-# here is the clustering
-manual_annotation = {str(i):[i] for i in labels}
-annotation_dict = {v:k for k, values in manual_annotation.items() for v in values }
-clusters = np.array([annotation_dict[i] for i in labels])
-colors20 = np.vstack((plt.cm.tab20b(np.linspace(0., 1, 20))[::2], plt.cm.tab20c(np.linspace(0, 1, 20))[1::2]))  # this is just setting colors
-vlm.set_clusters(clusters, cluster_colors_dict={k:colors20[v[0] % 20,:] for k,v in manual_annotation.items()})
+# # here is the clustering
+# manual_annotation = {str(i):[i] for i in labels}
+# annotation_dict = {v:k for k, values in manual_annotation.items() for v in values }
+# clusters = np.array([annotation_dict[i] for i in labels])
+# colors20 = np.vstack((plt.cm.tab20b(np.linspace(0., 1, 20))[::2], plt.cm.tab20c(np.linspace(0, 1, 20))[1::2]))  # this is just setting colors
+# vlm.set_clusters(clusters, cluster_colors_dict={k:colors20[v[0] % 20,:] for k,v in manual_annotation.items()})
 
 #%% knn imputation
 k = 550
@@ -280,46 +280,46 @@ plt.savefig("E9-11F1_pca_velocity.png")
 # %% [markdown]
 # # tsne plot
 
-# %%
-from sklearn.manifold import TSNE
-bh_tsne = TSNE()
-vlm.ts = bh_tsne.fit_transform(vlm.pcs[:, :25])
-# %%
-vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="log", psc=1,
-                             n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
+# # %%
+# from sklearn.manifold import TSNE
+# bh_tsne = TSNE()
+# vlm.ts = bh_tsne.fit_transform(vlm.pcs[:, :25])
+# # %%
+# vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="log", psc=1,
+#                              n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
 
-vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
-vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
+# vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=False)
+# vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 
-plt.figure(None,(12,12),dpi=300)
-vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":vlm.ca['cluster'], "cmap":"Paired"},
-                     min_mass=2.9, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.22, scale_type="absolute")
-# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
-# plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
-plt.gca().invert_xaxis()
-plt.axis("off")
-plt.axis("equal");
-scatter = plt.findobj(match=PathCollection)[0]
-plt.legend(*scatter.legend_elements(**kw))
-plt.tight_layout()
-plt.title("E9-11F1_tsne_velocity")
-plt.savefig("E9-11F1_tsne_velocity.png")
-
-
-# %%
-vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="sqrt", psc=1,
-                             n_neighbors=150, knn_random=True, sampled_fraction=1)
-vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=True)
+# plt.figure(None,(12,12),dpi=300)
+# vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":vlm.ca['cluster'], "cmap":"Paired"},
+#                      min_mass=2.9, angles='xy', scale_units='xy',
+#                      headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.22, scale_type="absolute")
+# # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
+# # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
+# plt.gca().invert_xaxis()
+# plt.axis("off")
+# plt.axis("equal");
+# scatter = plt.findobj(match=PathCollection)[0]
+# plt.legend(*scatter.legend_elements(**kw))
+# plt.tight_layout()
+# plt.title("E9-11F1_tsne_velocity")
+# plt.savefig("E9-11F1_tsne_velocity.png")
 
 
 # %%
-vlm.calculate_grid_arrows(smooth=0.8, steps=(40, 40), n_neighbors=300)
-plt.figure(None,(20,10))
-vlm.plot_grid_arrows(quiver_scale=0.6,
-                    scatter_kwargs_dict={"alpha":0.35, "lw":0.35, "edgecolor":"0.4", "s":38, "rasterized":True}, min_mass=24, angles='xy', scale_units='xy',
-                    headaxislength=2.75, headlength=5, headwidth=4.8, minlength=1.5,
-                    plot_random=True, scale_type="absolute")
+# vlm.estimate_transition_prob(hidim="Sx_sz", embed="ts", transform="sqrt", psc=1,
+#                              n_neighbors=150, knn_random=True, sampled_fraction=1)
+# vlm.calculate_embedding_shift(sigma_corr = 0.05, expression_scaling=True)
+
+
+# # %%
+# vlm.calculate_grid_arrows(smooth=0.8, steps=(40, 40), n_neighbors=300)
+# plt.figure(None,(20,10))
+# vlm.plot_grid_arrows(quiver_scale=0.6,
+#                     scatter_kwargs_dict={"alpha":0.35, "lw":0.35, "edgecolor":"0.4", "s":38, "rasterized":True}, min_mass=24, angles='xy', scale_units='xy',
+#                     headaxislength=2.75, headlength=5, headwidth=4.8, minlength=1.5,
+#                     plot_random=True, scale_type="absolute")
 
 
 # %% umap
