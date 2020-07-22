@@ -23,8 +23,10 @@ display(HTML("<style>.container { width:90% !important; }</style>"))
 # get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# %%
+# %% SETTINGS
 get_ipython().system('mkdir data')
+DATA = '9-11'
+MODE = 'DeepVelo'
 
 
 # %%
@@ -133,11 +135,26 @@ def principal_curve(X, pca=True):
 # # Load raw data
 
 # %%
-vlm = vcy.VelocytoLoom("E9F1_loom/possorted_genome_bam_0OM4Q.loom")
-num_cells = vlm.S.shape[1]
-vlm.ca['cluster'] = np.array([0]*num_cells, dtype=int)
-vlm = add_additional_loom(vlm, "E10F1_loom/possorted_genome_bam_0DOBR.loom", label=1)
-vlm = add_additional_loom(vlm, "E11F1_loom/possorted_genome_bam_983X8.loom", label=2)
+if DATA == "9-11":
+    vlm = vcy.VelocytoLoom("E9F1_loom/possorted_genome_bam_0OM4Q.loom")
+    num_cells = vlm.S.shape[1]
+    vlm.ca['cluster'] = np.array([0]*num_cells, dtype=int)
+    vlm = add_additional_loom(vlm, "E10F1_loom/possorted_genome_bam_0DOBR.loom", label=1)
+    vlm = add_additional_loom(vlm, "E11F1_loom/possorted_genome_bam_983X8.loom", label=2)
+    pca_img = 'E9-11F1_pca_velocity'
+    umap_img = 'E9-11F1_umap_velocity'
+    kw = dict(prop="colors", fmt="E{x:02d}", func=lambda c: c.astype(int)+9)
+    DEEPVELO_FILE = 'velo_mat_E9-11.npz'
+elif DATA == '10-12':
+    vlm = vcy.VelocytoLoom("E10F1_loom/possorted_genome_bam_0DOBR.loom")
+    num_cells = vlm.S.shape[1]
+    vlm.ca['cluster'] = np.array([0]*num_cells, dtype=int)
+    vlm = add_additional_loom(vlm, "E11F1_loom/possorted_genome_bam_983X8.loom", label=1)
+    vlm = add_additional_loom(vlm, "E12F1_loom/possorted_genome_bam_MYBJF.loom", label=2)
+    pca_img = 'E10-12F1_pca_velocity'
+    umap_img = 'E10-12F1_umap_velocity'
+    kw = dict(prop="colors", fmt="E{x:02d}", func=lambda c: c.astype(int)+10)
+    DEEPVELO_FILE = 'velo_mat_E10-12.npz'
 # down sample
 vlm = down_sample(vlm, max_cells=20000)
 lineage_mask = np.zeros(len(vlm.ca['CellID']), dtype=bool)
@@ -244,8 +261,12 @@ vlm.calculate_velocity()  # velocity is Ux - Upred = Ux - gamma * S_x
 
 np.savez('./data/DG_norm_genes.npz', Ux_sz=vlm.Ux_sz, Sx_sz=vlm.Sx_sz, velo=vlm.velocity)
 #data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
-# velo_mat = np.load('./data/velo_mat.npz')
-# vlm.velocity = velo_mat['velo_mat'].T  # (1448, 1720)
+if MODE == 'DeepVelo':
+    # os.sys('python train.py -c config.json')
+    velo_mat = np.load(f'./data/{DEEPVELO_FILE}')
+    vlm.velocity = velo_mat['velo_mat'].T  # (1448, 1720)
+    pca_img = pca_img + ' DeepVelo'
+    umap_img = umap_img + ' DeepVelo'
 
 # %% plot the velocity
 if not 'colorandum' in dir(vlm):
@@ -254,7 +275,6 @@ vlm.calculate_shift(assumption="constant_velocity")  # the numerical integration
 vlm.extrapolate_cell_at_t(delta_t=1)  # calculate this one and then just have a look which one it looks like
 
 
-kw = dict(prop="colors", fmt="E{x:02d}", func=lambda c: c.astype(int)+9)
 
 vlm.estimate_transition_prob(hidim="Sx_sz", embed="Pcs", transform="log", psc=1,
                              n_neighbors=150, knn_random=True, sampled_fraction=1)  # what it is doing with this one?! - compute the correlation coefficient
@@ -273,9 +293,9 @@ plt.axis("off")
 plt.axis("equal");
 scatter = plt.findobj(match=PathCollection)[0]
 plt.legend(*scatter.legend_elements(**kw))
-plt.title("E9-11F1_pca_velocity")
+plt.title(f"{pca_img}")
 plt.tight_layout()
-plt.savefig("E9-11F1_pca_velocity.png")
+plt.savefig(f"{pca_img}.png")
 
 # %% [markdown]
 # # tsne plot
@@ -340,7 +360,7 @@ vlm.calculate_grid_arrows(smooth=0.9, steps=(36, 36), n_neighbors=200)
 plt.figure(None,(12,12),dpi=300)
 vlm.plot_grid_arrows(scatter_kwargs_dict={"alpha":0.7, "lw":0.7, "edgecolor":"0.4", "s":70, "rasterized":True, "c":vlm.ca['cluster'], "cmap":"Paired"},
                      min_mass=2.9, angles='xy', scale_units='xy',
-                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.9, scale_type="absolute")
+                     headaxislength=2.75, headlength=5, headwidth=4.2, quiver_scale=0.81, scale_type="absolute")
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="w", lw=6, zorder=1000000)
 # plt.plot(pc_obj.projections[pc_obj.ixsort,0], pc_obj.projections[pc_obj.ixsort,1], c="k", lw=3, zorder=2000000)
 plt.gca().invert_xaxis()
@@ -348,7 +368,7 @@ plt.axis("off")
 plt.axis("equal");
 scatter = plt.findobj(match=PathCollection)[0]
 plt.legend(*scatter.legend_elements(**kw))
-plt.title("E9-11F1_umap_velocity")
+plt.title(f"{umap_img}")
 plt.tight_layout()
-plt.savefig("E9-11F1_umap_velocity.png")
+plt.savefig(f"{umap_img}.png")
 
