@@ -77,7 +77,9 @@ if __name__ == '__main__':
     CustomArgs = collections.namedtuple('CustomArgs', 'flags type target')
     options = [
         CustomArgs(['--lr', '--learning_rate'], type=float, target='optimizer;args;lr'),
-        CustomArgs(['--bs', '--batch_size'], type=int, target='data_loader;args;batch_size')
+        CustomArgs(['--ng', '--n_genes'], type=int, target='arch;args;n_genes'),
+        CustomArgs(['--bs', '--batch_size'], type=int, target='data_loader;args;batch_size'),
+        CustomArgs(['--ot', '--online_test'], type=str, target='online_test')
     ]
     config = ConfigParser.from_args(args, options)
     main(config)
