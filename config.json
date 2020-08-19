@@ -13,13 +13,13 @@
         "type": "VeloDataLoader",
         "args":{
             "data_dir": "./data/DG_norm_genes.npz",
-            "batch_size": 12217,
+            "batch_size": 4176,
             "shuffle": false,
             "validation_split": 0.0,
             "num_workers": 2
         }
     },
-    "online_test": "velo_mat_E9-11.npz",
+    "online_test": "velo_mat_E10-12.npz",
     "optimizer": {
         "type": "Adam",
         "args":{

@@ -106,6 +106,10 @@ input/
 saved/
 datasets/
 figures/
+result_files
+temporary_files
+*.png
+*.loom
 
 # editor, os cache directory
 .vscode/

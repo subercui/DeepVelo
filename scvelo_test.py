@@ -1,13 +1,20 @@
 # %%
 import scvelo as scv
 import numpy as np
+import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo')  # for beautified visualization
+DEEPVELO = True
+DEEPVELO_FILE = 'scvelo_mat.npz'
+data = 'DG'
 
 
 # %%loading and cleaningup data
-adata = scv.datasets.dentategyrus()
+if data == 'DG':
+    adata = scv.datasets.dentategyrus()
+elif data == 'EP':
+    adata = scv.datasets.pancreas()
 
 
 # %% Preprocessing Data
@@ -21,8 +28,6 @@ scv.pp.moments(adata, n_neighbors=30, n_pcs=30)
 # %% Compute velocity and velocity graph
 # import pudb; pudb.set_trace()
 scv.tl.velocity(adata)
-# adata.layers['velocity'] = - adata.layers['velocity']
-scv.tl.velocity_graph(adata)
 
 # %% output and change the velocity
 np.savez(
@@ -32,16 +37,23 @@ np.savez(
     velo=adata.layers['velocity'].T
     ) # have to input in dimmention order (1999 genes, 2930 cells)
 #data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
-velo_mat = np.load('./data/scvelo_mat.npz')
-adata.layers['velocity'] = velo_mat['velo_mat']  # (2930 cells, 1999 genes)
-# adata.layers['velocity'] = - adata.layers['velocity']
+if DEEPVELO:
+    n_genes, batch_size = adata.layers['velocity'].T.shape
+    os.system(f'python train.py -c config.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    # load
+    velo_mat = np.load(f'./data/{DEEPVELO_FILE}')
+    assert adata.layers['velocity'].shape == velo_mat['velo_mat'].shape
+    adata.layers['velocity'] = velo_mat['velo_mat']  # (2930 cells, 1999 genes)
+    # adata.layers['velocity'] = - adata.layers['velocity']
 scv.tl.velocity_graph(adata)
 
 # %% plot
-scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300, save='velo_emb_stream.pdf')
-# scv.pl.velocity_embedding(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=150)
-scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save='velo_emb_grid.pdf')
-
+if data == 'DG':
+    scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300, save='velo_emb_stream.png')
+    # scv.pl.velocity_embedding(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=150)
+    scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save='velo_emb_grid.png')
+elif data == 'EP':
+    scv.pl.velocity_embedding_stream(adata, basis='umap')
 
 # %% more plots
 scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
@@ -73,7 +85,7 @@ var_velo_grabule_immature = metric1(velos_grabule_immature)
 var_velo_grabule_mature = metric1(velos_grabule_mature)
 print(f"metric 1:")
 print(f"var of cosine similarity with in Grabule Immature Cells: {var_velo_grabule_immature}")
-# print(f"var of cosine similarity with in Grabule mature Cells: {var_velo_grabule_mature}")
+print(f"var of cosine similarity with in Grabule mature Cells: {var_velo_grabule_mature}")
 
 # metric 2:
 # %%
