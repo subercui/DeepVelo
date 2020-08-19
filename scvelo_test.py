@@ -4,10 +4,10 @@ import numpy as np
 import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
-scv.settings.set_figure_params('scvelo')  # for beautified visualization
+scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
 DEEPVELO = True
 DEEPVELO_FILE = 'scvelo_mat.npz'
-data = 'DG'
+data = 'EP'
 
 
 # %%loading and cleaningup data
@@ -53,7 +53,7 @@ if data == 'DG':
     # scv.pl.velocity_embedding(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=150)
     scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save='velo_emb_grid.png')
 elif data == 'EP':
-    scv.pl.velocity_embedding_stream(adata, basis='umap')
+    scv.pl.velocity_embedding_stream(adata, basis='umap', dpi=300, save='velo_emb_stream.png')
 
 # %% more plots
 scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
