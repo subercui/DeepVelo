@@ -10,7 +10,7 @@ def nll_loss(output, target):
 def mse_loss(output, target):
     return F.mse_loss(output, target)
 
-def min_loss(output, target, alpha=0):
+def min_loss(output, target, alpha=0, mode='per gene'):
     """
     selects one closest cell and computes the loss
 
@@ -21,9 +21,14 @@ def min_loss(output, target, alpha=0):
     target: torch.tensor e.g. (128, 30, 2000)
     """
     distance = torch.pow(target - torch.unsqueeze(output, 1), exponent=2) # (128, 30, 2000)
-    # import ipdb; ipdb.set_trace()
-    distance =  torch.sum(distance, dim=2)# (128, 30)
-    min_distance = torch.min(distance, dim=1)[0] # (128,)
+    if mode == 'per gene':
+        distance = torch.min(distance, dim=1)[0]  # find the closest target for each gene (128, 2000)
+        min_distance = torch.sum(distance, dim=1) # (128,)
+    elif mode == 'per cell':
+        distance =  torch.sum(distance, dim=2)# (128, 30)
+        min_distance = torch.min(distance, dim=1)[0] # (128,)
+    else:
+        raise NotImplementedError
 
     # loss = torch.mean(torch.max(torch.tensor(alpha).float(), min_distance))
     loss = torch.mean(min_distance)
