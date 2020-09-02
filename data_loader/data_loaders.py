@@ -8,7 +8,7 @@ import dgl
 from dgl.contrib.sampling import NeighborSampler
 
 class VeloDataset(Dataset):
-    def __init__(self, data_dir, train=True):
+    def __init__(self, data_dir, train=True, type='average', topC=30):
         data_obj = np.load(data_dir)
         self.Ux_sz = data_obj['Ux_sz'].T
         self.Sx_sz = data_obj['Sx_sz'].T
@@ -17,9 +17,24 @@ class VeloDataset(Dataset):
 
         self.S_tp1 = self.Sx_sz + self.velo
         dist = pairwise_distances(self.S_tp1, self.Sx_sz)  # (1720, 1720)
-        ind = np.argsort(dist, axis=1)[:, :30]  # (1720, 30)
-        for i in range(self.velo.shape[0]):
-            self.velo[i] = np.mean(self.Sx_sz[ind[i]], axis=0) - self.Sx_sz[i]
+        ind = np.argsort(dist, axis=1)[:, :topC]  # (1720, 30)
+        # update the velocity target vectors
+        if type == 'average':
+            self.velo = np.zeros(self.Sx_sz.shape, dtype=np.float32)
+            for i in range(self.velo.shape[0]):
+                self.velo[i] = np.mean(self.Sx_sz[ind[i]], axis=0) - self.Sx_sz[i]
+        if type == 'min':
+            # provide the vector to downstream neighbors as candidates
+            # TODO(Haotian): temporaryly store the vectors here. Future: store the index ind
+            # and compute the vectors on the fly during training, which can be more
+            # memory efficient.
+            self.velo = self.Sx_sz[ind] - np.expand_dims(self.Sx_sz, 1)
+
+            # self.velo = np.zeros(self.Sx_sz.shape+(topC,), dtype=np.float32)
+            # for i in range(self.velo.shape[0]):
+            #     self.velo[i] = self.Sx_sz[ind[i]] - self.Sx_sz[i]
+        elif type == 'mimic':
+            pass
         
         # build the knn graph in the original space
         dist = pairwise_distances(self.Sx_sz, self.Sx_sz)  # (1720, 1720)
@@ -77,9 +92,10 @@ class VeloDataLoader(BaseDataLoader):
     """
     MNIST data loading demo using BaseDataLoader
     """
-    def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, num_workers=1, training=True):
+    def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, 
+                num_workers=1, training=True, type='average', topC=30):
         self.data_dir = data_dir
-        self.dataset = VeloDataset(self.data_dir, train=training)
+        self.dataset = VeloDataset(self.data_dir, train=training, type=type, topC=topC)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
 class VeloNeighborSampler(NeighborSampler, BaseDataLoader):

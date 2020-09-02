@@ -1,4 +1,6 @@
 import torch
+assert torch.__version__ == '1.2.0'
+# other wise change the min function output
 
 
 def accuracy(output, target):
@@ -22,4 +24,24 @@ def top_k_acc(output, target, k=3):
 def mse(output, target):
     with torch.no_grad():
         se = torch.mean((target - output) ** 2)
+    return se
+
+def min_mse(output, target):
+    """
+    selects one closest cell and computes the loss
+
+    the target is the set of velocity target candidates, 
+    find the closest in them.
+
+    output: torch.tensor e.g. (128, 2000)
+    target: torch.tensor e.g. (128, 30, 2000)
+    """
+    with torch.no_grad():
+        distance = torch.pow(target - torch.unsqueeze(output, 1), exponent=2) # (128, 30, 2000)
+        distance =  torch.sum(distance, dim=2)# (128, 30)
+        min_distance = torch.min(distance, dim=1)[0] # (128,)
+
+        # loss = torch.mean(torch.max(torch.tensor(alpha).float(), min_distance))
+        se = torch.mean(min_distance)
+    
     return se

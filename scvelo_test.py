@@ -44,6 +44,9 @@ if DEEPVELO:
     # os.system(f'python train.py -c config_SelfAttention.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     # # if using base model
     # os.system(f'python train.py -c config_BaseModel.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    # # if using test
+    # os.system(f'python train.py -c config_test.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+
     # load
     velo_mat = np.load(f'./data/{DEEPVELO_FILE}')
     assert adata.layers['velocity'].shape == velo_mat['velo_mat'].shape
