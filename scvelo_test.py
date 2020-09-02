@@ -40,6 +40,10 @@ np.savez(
 if DEEPVELO:
     n_genes, batch_size = adata.layers['velocity'].T.shape
     os.system(f'python train.py -c config.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    # # if using self attention
+    # os.system(f'python train.py -c config_SelfAttention.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    # # if using base model
+    # os.system(f'python train.py -c config_BaseModel.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     # load
     velo_mat = np.load(f'./data/{DEEPVELO_FILE}')
     assert adata.layers['velocity'].shape == velo_mat['velo_mat'].shape

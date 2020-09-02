@@ -3,17 +3,17 @@
     "n_gpu": 1,
 
     "arch": {
-        "type": "VeloTransformer",
+        "type": "VeloModel",
         "args": {
             "n_genes": 2001, 
-            "layers": [2, 64]
+            "layers": [256, 64]
         }
     },
     "data_loader": {
         "type": "VeloDataLoader",
         "args":{
             "data_dir": "./data/DG_norm_genes.npz",
-            "batch_size": 32,
+            "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.0,
             "num_workers": 2
@@ -40,7 +40,7 @@
         }
     },
     "trainer": {
-        "epochs": 10,
+        "epochs": 120,
 
         "save_dir": "saved/",
         "save_period": 30,

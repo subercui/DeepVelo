@@ -25,7 +25,10 @@ def main(config):
     valid_data_loader = data_loader.split_validation()
 
     # build model architecture, then print to console
-    model = config.init_obj('arch', module_arch, g=data_loader.dataset.g)
+    if config['arch']['type'] == 'VeloGCN':
+        model = config.init_obj('arch', module_arch, g=data_loader.dataset.g)
+    else:
+        model = config.init_obj('arch', module_arch)
     logger.info(model)
 
     # get function handles of loss and metrics
