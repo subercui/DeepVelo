@@ -48,6 +48,21 @@ class Trainer(BaseTrainer):
             output = self.model(x_u, x_s)
         return output, target
 
+    def _smooth_constraint_step(self):
+        topG = self.config['data_loader']['args']['topG']
+        neighbor_batch_ind = self.data_loader.dataset.gen_neighbor_batch(
+            size=int(self.config['data_loader']['args']['batch_size']/topG))
+        x_u = self.data_loader.dataset.Ux_sz[neighbor_batch_ind].to(self.device)  # (batch, genes)
+        x_s = self.data_loader.dataset.Sx_sz[neighbor_batch_ind].to(self.device)
+        output_neighbor = self.model(x_u, x_s)  # (batch, genes)
+        self.optimizer.zero_grad()
+        output_neighbor = output_neighbor.t().reshape([-1, topG])
+        label_neighors = output_neighbor[:, 1:].detach()
+        pivot = output_neighbor[:, 0:1]
+        loss_c = torch.mean((label_neighors - pivot)**2)
+        loss_c.backward()
+        self.optimizer.step()
+
     def _train_epoch(self, epoch):
         """
         Training logic for an epoch
@@ -64,6 +79,9 @@ class Trainer(BaseTrainer):
             loss.backward()
             self.optimizer.step()
 
+            if self.config['constraint_loss']:
+                self._smooth_constraint_step()
+            
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update('loss', loss.item())
             for met in self.metric_ftns:

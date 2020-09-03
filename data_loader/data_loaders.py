@@ -8,11 +8,13 @@ import dgl
 from dgl.contrib.sampling import NeighborSampler
 
 class VeloDataset(Dataset):
-    def __init__(self, data_dir, train=True, type='average', topC=30):
+    def __init__(self, data_dir, train=True, type='average', topC=30, topG=16):
         data_obj = np.load(data_dir)
         self.Ux_sz = data_obj['Ux_sz'].T
         self.Sx_sz = data_obj['Sx_sz'].T
         self.velo = data_obj['velo'].T # shape (1448, 1720) to shape (1720, 1448)
+        self.topG = topG
+        N_cell, N_gene = self.Sx_sz.shape
         
 
         self.S_tp1 = self.Sx_sz + self.velo
@@ -40,6 +42,16 @@ class VeloDataset(Dataset):
         dist = pairwise_distances(self.Sx_sz, self.Sx_sz)  # (1720, 1720)
         ind = np.argsort(dist, axis=1)[:, :20]  # (1720, 20)
         self.g = self.build_graph(ind)
+        self.ind = ind
+
+        # # build the gene neighbors indices
+        # self.neighbors_per_gene = np.zeros([N_cell, topG, N_gene], dtype=np.float32)
+        # for g in range(N_gene):
+        #     # FIXME(Haotian): for each gene, it has the problem that a lot of the genes are 0, 
+        #     # thus the closest are other 0s, which makes no sense a lot of times
+        #     dist = pairwise_distances(self.Sx_sz[:, g:g+1], self.Sx_sz[:, g:g+1])
+        #     # import ipdb; ipdb.set_trace()
+        #     self.neighbors_per_gene[:,:,g] = np.argsort(dist, axis=1)[:, :topG]
 
         self.Ux_sz = torch.tensor(self.Ux_sz, dtype=torch.float32)
         self.Sx_sz = torch.tensor(self.Sx_sz, dtype=torch.float32)
@@ -57,6 +69,15 @@ class VeloDataset(Dataset):
             "velo": self.velo[i]
         }
         return data_dict
+
+    def gen_neighbor_batch(self, size):
+        indices = np.random.random_integers(0, high=len(self)-1, size=size)
+        # self.neighbors_per_gene is the neighbor indices for all cells, shape (N_cells, topG, genes)
+
+        # TODO(Haotian): try the per gene version
+        # Here since the per gene version encounters the 0 gene count bug, we first use the per cell version
+        # which is using self.ind
+        return self.ind[indices, :self.topG].flatten()
 
     def build_graph(self, ind):
         """ind (N,k) contains neighbor index"""
@@ -93,9 +114,9 @@ class VeloDataLoader(BaseDataLoader):
     MNIST data loading demo using BaseDataLoader
     """
     def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, 
-                num_workers=1, training=True, type='average', topC=30):
+                num_workers=1, training=True, type='average', topC=30, topG=16):
         self.data_dir = data_dir
-        self.dataset = VeloDataset(self.data_dir, train=training, type=type, topC=topC)
+        self.dataset = VeloDataset(self.data_dir, train=training, type=type, topC=topC, topG=topG)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
 class VeloNeighborSampler(NeighborSampler, BaseDataLoader):
