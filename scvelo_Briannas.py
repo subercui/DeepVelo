@@ -9,13 +9,15 @@ import os
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
 DEEPVELO = False
-FILTER_CELL = True
-LOAD_EMBS = True
+FILTER_CELL = True  # whether only include the subset of cells in clusters from Brianna
+LOAD_EMBS = False  # whether use the precomputed embeddings
+DYNAMICAL = True  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
-MODE = 'combined'  # choices {"combined", "CF", "TM"}
+MODE = 'CF'  # choices {"combined", "CF", "TM"}
 
 PREFIX = f'Brianna_Filtered_{MODE}_' if FILTER_CELL else f'Brianna_AllType_{MODE}_'
 SURFIX = '[load_embs]' if FILTER_CELL and LOAD_EMBS else ''
+SURFIX += '[dynamical]' if DYNAMICAL else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
 
 
@@ -124,7 +126,11 @@ scv.pp.moments(adata, n_neighbors=n_neighbors, n_pcs=n_pcs)
 
 # %% Compute velocity and velocity graph
 # import pudb; pudb.set_trace()
-scv.tl.velocity(adata)
+if DYNAMICAL:
+    scv.tl.recover_dynamics(adata)
+    scv.tl.velocity(adata, mode='dynamical')
+else:
+    scv.tl.velocity(adata)
 
 # %% output and change the velocity
 np.savez(
@@ -171,3 +177,14 @@ scv.pl.velocity_embedding_stream(
 
 # %% more plots
 # scv.pl.velocity_graph(adata, dpi=300, save=f'{PREFIX}velo_graph.png')
+
+if DYNAMICAL:
+    scv.tl.latent_time(adata)
+    scv.pl.scatter(
+        adata, 
+        color='latent_time', 
+        color_map='gnuplot', 
+        size=80,
+        dpi=300,
+        save=f'{PREFIX}latent_time{SURFIX}.png'
+    )
