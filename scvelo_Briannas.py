@@ -13,6 +13,7 @@ FILTER_CELL = True
 LOAD_EMBS = True
 DEEPVELO_FILE = 'scvelo_mat.npz'
 MODE = 'combined'  # choices {"combined", "CF", "TM"}
+
 PREFIX = f'Brianna_Filtered_{MODE}_' if FILTER_CELL else f'Brianna_AllType_{MODE}_'
 SURFIX = '[load_embs]' if FILTER_CELL and LOAD_EMBS else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
@@ -36,6 +37,7 @@ if MODE == 'combined':
         "TM-9469":scv.read('data/FromBrianna/TM-9469.loom', cache=True),
         "TM-9817":scv.read('data/FromBrianna/TM-9817.loom', cache=True)
     }
+    n_neighbors, n_pcs = 30, 30
 elif MODE == 'CF':
     adatas = {
         "CF-0404": scv.read('data/FromBrianna/CF-0404.loom', cache=True),
@@ -44,6 +46,7 @@ elif MODE == 'CF':
         "CF-318-813":scv.read('data/FromBrianna/CF-318-813.loom', cache=True),
         "CF-428-112":scv.read('data/FromBrianna/CF-428-112.loom', cache=True)
     }
+    n_neighbors, n_pcs = 30, 30
 elif MODE == 'TM':
     adatas = {
         "TM-2768":scv.read('data/FromBrianna/TM-2768.loom', cache=True),
@@ -54,6 +57,7 @@ elif MODE == 'TM':
         "TM-9469":scv.read('data/FromBrianna/TM-9469.loom', cache=True),
         "TM-9817":scv.read('data/FromBrianna/TM-9817.loom', cache=True)
     }
+    n_neighbors, n_pcs = 30, 30
 # concatenate approach 1 - ad.concat
 for k, v in adatas.items():
     v.var_names_make_unique()
@@ -115,7 +119,7 @@ if FILTER_CELL and LOAD_EMBS:
 scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=2000)
 
 # here comes the NN graph and dynamic estimations
-scv.pp.moments(adata, n_neighbors=30, n_pcs=30)
+scv.pp.moments(adata, n_neighbors=n_neighbors, n_pcs=n_pcs)
 
 
 # %% Compute velocity and velocity graph
@@ -156,7 +160,14 @@ if not 'X_umap' in adata.obsm:
 # adata.write('data/FromBrianna/processed_Brianna_adata.h5ad', compression='gzip')
 
 # %% plot
-scv.pl.velocity_embedding_stream(adata, basis='umap', color='clusters', dpi=300, save=f'{PREFIX}velo_emb_stream{SURFIX}.png')
+scv.pl.velocity_embedding_stream(
+    adata, 
+    basis='umap', 
+    color='clusters', 
+    dpi=300, 
+    save=f'{PREFIX}velo_emb_stream{SURFIX}.png'
+    # title=f'{PREFIX}velocity{SURFIX}',
+)
 
 # %% more plots
 # scv.pl.velocity_graph(adata, dpi=300, save=f'{PREFIX}velo_graph.png')
