@@ -11,7 +11,7 @@ scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified vi
 DEEPVELO = False
 FILTER_CELL = True  # whether only include the subset of cells in clusters from Brianna
 LOAD_EMBS = False  # whether use the precomputed embeddings
-DYNAMICAL = True  # whether use the dynamical mode of scvelo and compute latent time
+DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
 MODE = 'CF'  # choices {"combined", "CF", "TM"}
 
@@ -173,6 +173,15 @@ scv.pl.velocity_embedding_stream(
     dpi=300, 
     save=f'{PREFIX}velo_emb_stream{SURFIX}.png'
     # title=f'{PREFIX}velocity{SURFIX}',
+)
+
+scv.pl.velocity_embedding_stream(
+    adata, 
+    basis='umap', 
+    color='dataset', 
+    title='sample sources',
+    dpi=300, 
+    save=f'{PREFIX}dataset{SURFIX}.png'
 )
 
 # %% more plots
