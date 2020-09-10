@@ -17,8 +17,9 @@
             "shuffle": false,
             "validation_split": 0.0,
             "num_workers": 2,
-            "type": "min",
-            "topC": 30
+            "type": "average",
+            "topC": 30,
+            "topG": 16
         }
     },
     "online_test": "velo_mat_E10-12.npz",
@@ -30,9 +31,10 @@
             "amsgrad": true
         }
     },
-    "loss": "min_loss",
+    "loss": "mse_loss",
+    "constraint_loss": false,
     "metrics": [
-        "min_mse"
+        "mse"
     ],
     "lr_scheduler": {
         "type": "StepLR",
