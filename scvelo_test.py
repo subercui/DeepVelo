@@ -6,8 +6,11 @@ import os
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
 DEEPVELO = True
+DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
 data = 'EP'
+SURFIX = '[dynamical]' if DYNAMICAL else ''
+SURFIX += '[deep_velo]' if DEEPVELO else ''
 
 
 # %%loading and cleaningup data
@@ -27,7 +30,11 @@ scv.pp.moments(adata, n_neighbors=30, n_pcs=30)
 
 # %% Compute velocity and velocity graph
 # import pudb; pudb.set_trace()
-scv.tl.velocity(adata)
+if DYNAMICAL:
+    scv.tl.recover_dynamics(adata)
+    scv.tl.velocity(adata, mode='dynamical')
+else:
+    scv.tl.velocity(adata)
 
 # %% output and change the velocity
 np.savez(
@@ -57,14 +64,26 @@ scv.tl.velocity_graph(adata)
 
 # %% plot
 if data == 'DG':
-    scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300, save='velo_emb_stream.png')
+    scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300, save=f'velo_emb_stream{SURFIX}.png')
     # scv.pl.velocity_embedding(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=150)
-    scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save='velo_emb_grid.png')
+    scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save=f'velo_emb_grid{SURFIX}.png')
 elif data == 'EP':
-    scv.pl.velocity_embedding_stream(adata, basis='umap', dpi=300, save='velo_emb_stream.png')
+    scv.pl.velocity_embedding_stream(adata, basis='umap', dpi=300, save=f'velo_emb_stream{SURFIX}.png')
 
 # %% more plots
-scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
+# scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
+# scv.pl.velocity(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
+scv.pl.velocity(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
+if DYNAMICAL:
+    scv.tl.latent_time(adata)
+    scv.pl.scatter(
+        adata, 
+        color='latent_time', 
+        color_map='gnuplot', 
+        size=80,
+        dpi=300,
+        save=f'latent_time{SURFIX}.png'
+    )
 
 
 # %% [markdown]
