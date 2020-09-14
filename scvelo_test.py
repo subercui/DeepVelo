@@ -67,7 +67,7 @@ scv.tl.velocity_graph(adata)
 
 # %% plot
 if data == 'DG':
-    scv.pl.velocity_embedding_stream(adata, basis='umap', color=['clusters', 'age(days)'], dpi=300, save=f'velo_emb_stream{SURFIX}.png')
+    scv.pl.velocity_embedding_stream(adata, basis='umap', color='clusters', dpi=300, save=f'velo_emb_stream{SURFIX}.png')
     # scv.pl.velocity_embedding(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=150)
     scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save=f'velo_emb_grid{SURFIX}.png')
 elif data == 'EP':
@@ -75,8 +75,9 @@ elif data == 'EP':
 
 # %% more plots
 # scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
-scv.pl.velocity(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
-scv.pl.scatter(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase{SURFIX}.png')
+if data == 'EP':
+    scv.pl.velocity(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
+    scv.pl.scatter(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase{SURFIX}.png')
 if DYNAMICAL:
     scv.tl.latent_time(adata)
     scv.pl.scatter(

@@ -4,16 +4,17 @@ import numpy as np
 import anndata as ad
 import scanpy as sc
 import pandas as pd
+from time import time
 import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-DEEPVELO = False
+DEEPVELO = True
 FILTER_CELL = True  # whether only include the subset of cells in clusters from Brianna
-LOAD_EMBS = False  # whether use the precomputed embeddings
+LOAD_EMBS = True  # whether use the precomputed embeddings
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
-MODE = 'CF'  # choices {"combined", "CF", "TM"}
+MODE = 'combined'  # choices {"combined", "CF", "TM"}
 
 PREFIX = f'Brianna_Filtered_{MODE}_' if FILTER_CELL else f'Brianna_AllType_{MODE}_'
 SURFIX = '[load_embs]' if FILTER_CELL and LOAD_EMBS else ''
@@ -142,14 +143,16 @@ np.savez(
 #data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
 if DEEPVELO:
     n_genes, batch_size = adata.layers['velocity'].T.shape
+    now = time()
     # os.system(f'python train.py -c config.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     # # if using self attention
     # os.system(f'python train.py -c config_SelfAttention.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     # # if using base model
     # os.system(f'python train.py -c config_BaseModel.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     # if using test
-    os.system(f'python train.py -c config_test.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
-    # os.system(f'python train.py -c config_test_gcn.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    # os.system(f'python train.py -c config_test.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    os.system(f'python train.py -c config_test_gcn.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    print(f'finished in {time()-now:.2f}s')
 
     # load
     velo_mat = np.load(f'./data/{DEEPVELO_FILE}')
