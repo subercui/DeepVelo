@@ -9,7 +9,7 @@ scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified vi
 DEEPVELO = True
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
-data = 'EP'
+data = 'EP'  # choice of {'EP', 'DG', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
 SURFIX = '[dynamical]' if DYNAMICAL else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
 
@@ -19,6 +19,16 @@ if data == 'DG':
     adata = scv.datasets.dentategyrus()
 elif data == 'EP':
     adata = scv.datasets.pancreas()
+elif data == 'velocyto_hg':
+    adata = scv.read('data/hgForebrainGlut.loom', cache=True)
+elif data == 'E9M2_Glial':
+    adata = scv.read('data/E9M2_glial.h5ad',cache=True)
+elif data == 'E9-11F1_Glial':
+    adata = scv.read('data/E9-11F1_glial.h5ad', cache=True)
+elif data == 'E9-11M2_Glial':
+    adata = scv.read('data/E9-11M2_glial.h5ad', cache=True)
+elif data == 'E9-11F1_Gluta':
+    adata = scv.read('data/E9-11F1_glutamergic.h5ad', cache=True)
 
 
 # %% Preprocessing Data
@@ -65,6 +75,10 @@ if DEEPVELO:
     # adata.layers['velocity'] = - adata.layers['velocity']
 scv.tl.velocity_graph(adata)
 
+# %% generate umap if need
+if not 'X_umap' in adata.obsm:
+    scv.tl.umap(adata)  # this will add adata.obsm: 'X_umap'
+
 # %% plot
 if data == 'DG':
     scv.pl.velocity_embedding_stream(adata, basis='umap', color='clusters', dpi=300, save=f'velo_emb_stream{SURFIX}.png')
@@ -72,7 +86,11 @@ if data == 'DG':
     scv.pl.velocity_embedding_grid(adata, basis='umap', arrow_length=1.2, arrow_size=1.2, dpi=300, save=f'velo_emb_grid{SURFIX}.png')
 elif data == 'EP':
     scv.pl.velocity_embedding_stream(adata, basis='umap', dpi=300, save=f'velo_emb_stream{SURFIX}.png')
-
+elif data.startswith('E9'):
+    # scv.pl.velocity_embedding_stream(adata, basis='umap', dpi=300, title=f'{data}', save=f'{data}velo_stream{SURFIX}.png')
+    scv.pl.velocity_embedding_stream(adata, basis='pca', color='time', dpi=300, title=f'{data}_pca', save=f'{data}velo_stream{SURFIX}[pca].png')
+elif data == 'velocyto_hg':
+    scv.pl.velocity_embedding_stream(adata, basis='pca', color='Clusters', dpi=300, title=f'{data}_pca', save=f'{data}velo_stream{SURFIX}[pca].png')
 # %% more plots
 # scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
 if data == 'EP':
@@ -94,29 +112,29 @@ if DYNAMICAL:
 # # Have a try on the velocyto's data
 
 # %% Try to run evaluations
+if data == 'DG':
+    # prepare cluster labels
+    all_labels = adata.obs.clusters.to_numpy()
+    list_granule_immature = all_labels == 'Granule immature'
+    list_granule_mature = all_labels == 'Granule mature'
+    velos_grabule_immature = adata.layers['velocity'][list_granule_immature]
+    velos_grabule_mature = adata.layers['velocity'][list_granule_mature]
 
-# prepare cluster labels
-all_labels = adata.obs.clusters.to_numpy()
-list_granule_immature = all_labels == 'Granule immature'
-list_granule_mature = all_labels == 'Granule mature'
-velos_grabule_immature = adata.layers['velocity'][list_granule_immature]
-velos_grabule_mature = adata.layers['velocity'][list_granule_mature]
+    # get the average velocity
+    ave_velo_grabule_immature = velos_grabule_immature.mean(0)  # (1999,)
+    ave_velo_grabule_mature = velos_grabule_mature.mean(0)  # (1999,)
 
-# get the average velocity
-ave_velo_grabule_immature = velos_grabule_immature.mean(0)  # (1999,)
-ave_velo_grabule_mature = velos_grabule_mature.mean(0)  # (1999,)
+    # metric 1: relative variance of cosine similarity within cluster
+    from sklearn import preprocessing
+    def metric1(data):
+        norm_data = preprocessing.normalize(data, axis=1)
+        var_cos = (norm_data@norm_data.T).var()
+        return var_cos
+    var_velo_grabule_immature = metric1(velos_grabule_immature)
+    var_velo_grabule_mature = metric1(velos_grabule_mature)
+    print(f"metric 1:")
+    print(f"var of cosine similarity with in Grabule Immature Cells: {var_velo_grabule_immature}")
+    print(f"var of cosine similarity with in Grabule mature Cells: {var_velo_grabule_mature}")
 
-# metric 1: relative variance of cosine similarity within cluster
-from sklearn import preprocessing
-def metric1(data):
-    norm_data = preprocessing.normalize(data, axis=1)
-    var_cos = (norm_data@norm_data.T).var()
-    return var_cos
-var_velo_grabule_immature = metric1(velos_grabule_immature)
-var_velo_grabule_mature = metric1(velos_grabule_mature)
-print(f"metric 1:")
-print(f"var of cosine similarity with in Grabule Immature Cells: {var_velo_grabule_immature}")
-print(f"var of cosine similarity with in Grabule mature Cells: {var_velo_grabule_mature}")
-
-# metric 2:
+    # metric 2:
 # %%

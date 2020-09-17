@@ -27,10 +27,9 @@ display(HTML("<style>.container { width:90% !important; }</style>"))
 # %% SETTINGS
 get_ipython().system('mkdir data')
 DATA = 'E9-11F1'
-MODE = 'Velo'
 # CLUSTER_CODE = '24_barcodes_cluster_glial_male.tsv'
-CLUSTER_CODE = '24_barcodes_cluster_glial_female.tsv'
-# CLUSTER_CODE = '24_barcodes_cluster_glutamergic_female.tsv'
+# CLUSTER_CODE = '24_barcodes_cluster_glial_female.tsv'
+CLUSTER_CODE = '24_barcodes_cluster_glutamergic_female.tsv'
 
 
 # %%
@@ -50,6 +49,7 @@ from rpy2.robjects.packages import importr
 colors20 = np.vstack((plt.cm.tab20b(np.linspace(0., 1, 20))[::2], plt.cm.tab20c(np.linspace(0, 1, 20))[1::2]))
 def colormap_fun(x: np.ndarray) -> np.ndarray:
     return colors20[np.mod(x, 20)]
+
 
 def add_additional_loom(vlm_base, loom_to_add, label=1):
     vlm_add = vcy.VelocytoLoom(loom_to_add)
@@ -72,6 +72,7 @@ def add_additional_loom(vlm_base, loom_to_add, label=1):
         [vlm_base.ca['cluster'], np.array([label]*num_add_cells, dtype=int)], axis=0)
     return vlm_base
 
+
 def filter_from_file(vlm, barcode_file):
     barcode_df = pd.read_csv(barcode_file, sep='\t')
     # {'GGCAGTCCACATCCCT': 10,}
@@ -88,6 +89,7 @@ def filter_from_file(vlm, barcode_file):
     assert vlm.ca['cell_type'].min() > 0
     return vlm
 
+
 def down_sample(vlm, max_cells):
     num_cells = vlm.S.shape[1]
     if num_cells <= max_cells:
@@ -102,11 +104,36 @@ def down_sample(vlm, max_cells):
     vlm.ca['cluster'] = vlm.ca['cluster'][select_ids]
     return vlm
 
+
 def array_to_rmatrix(X):
     nr, nc = X.shape
     xvec = robj.FloatVector(X.transpose().reshape((X.size)))
     xr = robj.r.matrix(xvec, nrow=nr, ncol=nc)
     return xr
+
+
+def save_adata(file):
+    if os.path.exists(file):
+        return
+
+    import anndata as ad
+    import pandas as pd
+    from scipy.sparse import csr_matrix
+    adata = ad.AnnData(
+        X=csr_matrix(vlm.S.T), 
+        obs=pd.DataFrame(
+            data={'clusters':vlm.ca['cell_type'], 'time':vlm.ca['cluster']},
+            index=vlm.ca['CellID']
+        ),
+        var=pd.DataFrame(index=vlm.ra['Gene']),
+        layers={
+            'ambiguous':csr_matrix(vlm.A.T),
+            'spliced':csr_matrix(vlm.S.T),
+            'unspliced':csr_matrix(vlm.U.T)
+        }
+    )
+    adata.write(file, compression='gzip')
+
 
 def principal_curve(X, pca=True):
     """
@@ -235,6 +262,8 @@ else:
     vlm.filter_cells(lineage_mask)
     vlm.colorandum = colormap_fun(vlm.ca['cluster'])
     color_set = vlm.ca['cluster']
+save_adata(file = f'data/{DATA}_{LINEAGE}.h5ad')
+
 # vlm = vcy.VelocytoLoom("data/DentateGyrus.loom")
 # labels = vlm.ca["Clusters"]
 # manual_annotation = {str(i):[i] for i in labels}

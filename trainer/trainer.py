@@ -74,6 +74,11 @@ class Trainer(BaseTrainer):
         self.train_metrics.reset()
         for batch_idx, batch_data in enumerate(self.data_loader):
             output, target = self._compute_core(batch_data)
+            if self.config['mask_zeros']:
+                data_dict = batch_data
+                mask = data_dict['mask'].to(self.device)  # (batch, n_gene)
+                output = output*mask
+                target = target*mask
             self.optimizer.zero_grad()
             loss = self.criterion(output, target)
             loss.backward()

@@ -33,6 +33,7 @@
     },
     "loss": "mse_loss",
     "constraint_loss": false,
+    "mask_zeros": true,
     "metrics": [
         "mse"
     ],

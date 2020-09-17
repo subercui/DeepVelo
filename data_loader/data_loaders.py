@@ -53,9 +53,15 @@ class VeloDataset(Dataset):
         #     # import ipdb; ipdb.set_trace()
         #     self.neighbors_per_gene[:,:,g] = np.argsort(dist, axis=1)[:, :topG]
 
+        # build masks
+        mask = np.ones([N_cell, N_gene])  # shape (N_cells, n_genes)
+        mask[self.Ux_sz == 0] = 0
+        mask[self.Sx_sz == 0] = 0
+
         self.Ux_sz = torch.tensor(self.Ux_sz, dtype=torch.float32)
         self.Sx_sz = torch.tensor(self.Sx_sz, dtype=torch.float32)
         self.velo = torch.tensor(self.velo, dtype=torch.float32)
+        self.mask = torch.tensor(mask, dtype=torch.float32)
         print('velo data shape:', self.velo.shape)
 
     def __len__(self):
@@ -66,7 +72,8 @@ class VeloDataset(Dataset):
         data_dict = {
             "Ux_sz": self.Ux_sz[i],
             "Sx_sz": self.Sx_sz[i],
-            "velo": self.velo[i]
+            "velo": self.velo[i],
+            "mask": self.mask[i]
         }
         return data_dict
 
