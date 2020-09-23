@@ -2,14 +2,15 @@
 import scvelo as scv
 import numpy as np
 from time import time
+from utils.scatter import scatter
 import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-DEEPVELO = True
+DEEPVELO = False
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
-data = 'EP'  # choice of {'EP', 'DG', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
+data = 'E9-11M2_Glial'  # choice of {'EP', 'DG', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
 SURFIX = '[dynamical]' if DYNAMICAL else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
 
@@ -96,6 +97,9 @@ elif data == 'velocyto_hg':
 if data == 'EP':
     scv.pl.velocity(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
     scv.pl.scatter(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase{SURFIX}.png')
+elif data.startswith('E9'):
+    scv.pl.velocity(adata, var_names=['Mybl1', 'Rragb'], basis='pca', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
+    scatter(adata, var_names=['Mybl1', 'Rragb'], basis='pca', dpi=300, save=f'phase{SURFIX}.png')
 if DYNAMICAL:
     scv.tl.latent_time(adata)
     scv.pl.scatter(
