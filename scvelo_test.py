@@ -7,7 +7,7 @@ import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-DEEPVELO = False
+DEEPVELO = True  # choice of {True, False, 'ShowTarget'}
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
 data = 'E9-11M2_Glial'  # choice of {'EP', 'DG', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
@@ -56,7 +56,15 @@ np.savez(
     velo=adata.layers['velocity'].T
     ) # have to input in dimmention order (1999 genes, 2930 cells)
 #data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
-if DEEPVELO:
+if DEEPVELO == 'ShowTarget':
+    print('computing target velocities')
+    n_genes, batch_size = adata.layers['velocity'].T.shape
+    from data_loader.data_loaders import VeloDataset
+    ds = VeloDataset(data_dir='./data/scveloDG.npz')
+    velo_mat = ds.velo.numpy()
+    assert adata.layers['velocity'].shape == velo_mat.shape
+    adata.layers['velocity'] = velo_mat  # (2930 cells, 1999 genes)
+elif DEEPVELO:
     n_genes, batch_size = adata.layers['velocity'].T.shape
     now = time()
     # os.system(f'python train.py -c config.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
@@ -99,7 +107,8 @@ if data == 'EP':
     scv.pl.scatter(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase{SURFIX}.png')
 elif data.startswith('E9'):
     scv.pl.velocity(adata, var_names=['Mybl1', 'Rragb'], basis='pca', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
-    scatter(adata, var_names=['Mybl1', 'Rragb'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
+    scatter(adata, var_names=['Mybl1'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
+    scatter(adata, var_names=['Rragb'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
 if DYNAMICAL:
     scv.tl.latent_time(adata)
     scv.pl.scatter(
