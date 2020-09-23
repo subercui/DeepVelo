@@ -99,7 +99,7 @@ if data == 'EP':
     scv.pl.scatter(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase{SURFIX}.png')
 elif data.startswith('E9'):
     scv.pl.velocity(adata, var_names=['Mybl1', 'Rragb'], basis='pca', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
-    scatter(adata, var_names=['Mybl1', 'Rragb'], basis='pca', dpi=300, save=f'phase{SURFIX}.png')
+    scatter(adata, var_names=['Mybl1', 'Rragb'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
 if DYNAMICAL:
     scv.tl.latent_time(adata)
     scv.pl.scatter(

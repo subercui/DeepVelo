@@ -48,6 +48,8 @@ def scatter(
     add_rug=None,
     add_text=None,
     add_text_pos=None,
+    add_quiver=None,
+    quiver_size=None,
     add_outline=None,
     outline_width=None,
     outline_color=None,
@@ -595,23 +597,24 @@ def scatter(
                         kwargs["s"] = np.array(kwargs["s"])[order]
 
             # check if plot quivers
-            quiver_kwargs = {
-            "scale": 1,
-            "cmap": kwargs["cmap"],
-            "angles": "xy",
-            "scale_units": "xy",
-            "edgecolors": "k",
-            "linewidth": 0.1,
-            "width": None,
-            }
-            vs = get_obs_vector(adata, basis, layer='velocity', use_raw=use_raw)
-            vu = np.zeros_like(vs)
-            # make dense().flatten()
-            # ravel
-            if is_color_like(c[0]):
-                ax.quiver(x, y, vs, vu, color=c, **quiver_kwargs)
-            else:
-                ax.quiver(x, y, vs, vu, c, **quiver_kwargs)
+            if add_quiver:
+                quiver_kwargs = {
+                "scale": quiver_size if quiver_size else 1,
+                "cmap": kwargs["cmap"],
+                "angles": "xy",
+                "scale_units": "xy",
+                "edgecolors": "k",
+                "linewidth": 0.1,
+                "width": None,
+                }
+                vs = get_obs_vector(adata, basis, layer='velocity', use_raw=use_raw)
+                vu = np.zeros_like(vs)
+                # make dense().flatten()
+                # ravel
+                if is_color_like(c[0]):
+                    ax.quiver(x, y, vs, vu, color=c, **quiver_kwargs)
+                else:
+                    ax.quiver(x, y, vs, vu, c, **quiver_kwargs)
 
             # NOTE(Haotian): the actual scatter
             smp = ax.scatter(
