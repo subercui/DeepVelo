@@ -7,10 +7,10 @@ import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-DEEPVELO = True  # choice of {True, False, 'ShowTarget'}
-DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
+DEEPVELO = False  # choice of {True, False, 'ShowTarget'}
+DYNAMICAL = True  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
-data = 'E9-11M2_Glial'  # choice of {'EP', 'DG', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
+data = 'velocyto_dg'  # choice of {'EP', 'DG', 'velocyto_dg', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
 SURFIX = '[dynamical]' if DYNAMICAL else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
 
@@ -20,6 +20,9 @@ if data == 'DG':
     adata = scv.datasets.dentategyrus()
 elif data == 'EP':
     adata = scv.datasets.pancreas()
+elif data == 'velocyto_dg':
+    adata = scv.read('data/DentateGyrus.loom', cache=True)
+    adata.obsm['tsne'] = adata.obs[['TSNE1','TSNE2']].to_numpy()
 elif data == 'velocyto_hg':
     adata = scv.read('data/hgForebrainGlut.loom', cache=True)
 elif data == 'E9M2_Glial':
@@ -85,7 +88,7 @@ elif DEEPVELO:
 scv.tl.velocity_graph(adata)
 
 # %% generate umap if need
-if not 'X_umap' in adata.obsm:
+if not ('X_umap' in adata.obsm or 'tsne' in adata.obsm):
     scv.tl.umap(adata)  # this will add adata.obsm: 'X_umap'
 
 # %% plot
@@ -100,11 +103,13 @@ elif data.startswith('E9'):
     scv.pl.velocity_embedding_stream(adata, basis='pca', color='time', dpi=300, title=f'{data}_pca', save=f'{data}velo_stream{SURFIX}[pca].png')
 elif data == 'velocyto_hg':
     scv.pl.velocity_embedding_stream(adata, basis='pca', color='Clusters', dpi=300, title=f'{data}_pca', save=f'{data}velo_stream{SURFIX}[pca].png')
+elif data == 'velocyto_dg':
+    scv.pl.velocity_embedding_stream(adata, basis='tsne', color='Clusters', dpi=300, save=f'{data}velo_stream{SURFIX}[tsne].png')
 # %% more plots
 # scv.pl.velocity_graph(adata, dpi=300, save='velo_graph.pdf')
 if data == 'EP':
     scv.pl.velocity(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
-    scv.pl.scatter(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', dpi=300, save=f'phase{SURFIX}.png')
+    scatter(adata, var_names=['Sntg1', 'Sbspon'], basis='umap', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
 elif data.startswith('E9'):
     scv.pl.velocity(adata, var_names=['Mybl1', 'Rragb'], basis='pca', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
     scatter(adata, var_names=['Mybl1'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
