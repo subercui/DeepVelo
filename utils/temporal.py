@@ -1,8 +1,8 @@
-from .. import settings
-from .. import logging as logg
-from ..preprocessing.moments import get_connectivities
-from .utils import make_unique_list, test_bimodality
-from .dynamical_model_utils import BaseDynamics, linreg, convolve, tau_inv, unspliced
+from scvelo import settings
+from scvelo import logging as logg
+from scvelo.preprocessing.moments import get_connectivities
+from scvelo.tools.utils import make_unique_list, test_bimodality
+from scvelo.tools.dynamical_model_utils import BaseDynamics, linreg, convolve, tau_inv, unspliced
 
 import numpy as np
 import pandas as pd
@@ -430,7 +430,7 @@ def recover_dynamics(
         elif use_raw or var_names == "all":
             var_names = adata.var_names
         elif "_genes" in var_names:
-            from .velocity import Velocity
+            from scvelo.tools.velocity import Velocity
 
             velo = Velocity(adata, use_raw=use_raw)
             velo.compute_deterministic(perc=[5, 95])
@@ -742,11 +742,11 @@ def latent_time(
     """
     adata = data.copy() if copy else data
 
-    from .utils import vcorrcoef, scale
-    from .dynamical_model_utils import root_time, compute_shared_time
-    from .terminal_states import terminal_states
-    from .velocity_graph import velocity_graph
-    from .velocity_pseudotime import velocity_pseudotime
+    from scvelo.tools.utils import vcorrcoef, scale
+    from scvelo.tools.dynamical_model_utils import root_time, compute_shared_time
+    from scvelo.tools.terminal_states import terminal_states
+    from scvelo.tools.velocity_graph import velocity_graph
+    from scvelo.tools.velocity_pseudotime import velocity_pseudotime
 
     if "fit_t" not in adata.layers.keys():
         raise ValueError("you need to run `tl.recover_dynamics` first.")
