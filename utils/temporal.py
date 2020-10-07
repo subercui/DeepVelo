@@ -3,6 +3,7 @@ from scvelo import logging as logg
 from scvelo.preprocessing.moments import get_connectivities
 from scvelo.tools.utils import make_unique_list, test_bimodality
 from scvelo.tools.dynamical_model_utils import BaseDynamics, linreg, convolve, tau_inv, unspliced
+from scvelo.tools.terminal_states import eigs
 
 import numpy as np
 import pandas as pd
@@ -699,6 +700,8 @@ def latent_time(
     root_key=None,
     end_key=None,
     t_max=None,
+    use_fit_t=False,
+    method='dpt',
     copy=False,
 ):
     """Computes a gene-shared latent time.
@@ -729,6 +732,10 @@ def latent_time(
         If not set, it obtains root cells from velocity-inferred transition matrix.
     end_key: `str` or `None` (default: `None`)
         Key (.obs) of end points to be used.
+    use_fit_t: `bool` (default: `false`)
+        Use fit_t in the dynamical model to calculate the latent time.
+    method: `str` or `None` (default: `'dpt1'`)
+        The method to compute the relative time.
     t_max: `float` or `None` (default: `None`)
         Overall duration of differentiation process.
         If not set, a overall transcriptional timescale of 20 hours is used as prior.
@@ -748,7 +755,7 @@ def latent_time(
     from scvelo.tools.velocity_graph import velocity_graph
     from scvelo.tools.velocity_pseudotime import velocity_pseudotime
 
-    if "fit_t" not in adata.layers.keys():
+    if use_fit_t and "fit_t" not in adata.layers.keys():
         raise ValueError("you need to run `tl.recover_dynamics` first.")
 
     # NOTE(Haotian): first need the velocity graph
@@ -766,17 +773,18 @@ def latent_time(
     if root_key not in adata.obs.keys():
         terminal_states(adata, vkey=vkey)
 
-    t = np.array(adata.layers["fit_t"])
-    idx_valid = ~np.isnan(t.sum(0))  # this is the valid idx on the gene axis, each has to have valid time t across all cells
-    if min_likelihood is not None: # filter out more unreliable ts
-        likelihood = adata.var["fit_likelihood"].values
-        idx_valid &= np.array(likelihood >= min_likelihood, dtype=bool)
-    t = t[:, idx_valid]
-    t_sum = np.sum(t, 1)
+    if use_fit_t:
+        t = np.array(adata.layers["fit_t"])
+        idx_valid = ~np.isnan(t.sum(0))  # this is the valid idx on the gene axis, each has to have valid time t across all cells
+        if min_likelihood is not None: # filter out more unreliable ts
+            likelihood = adata.var["fit_likelihood"].values
+            idx_valid &= np.array(likelihood >= min_likelihood, dtype=bool)
+        t = t[:, idx_valid]
+        t_sum = np.sum(t, 1)
     conn = get_connectivities(adata)
 
     if root_key not in adata.uns.keys():
-        roots = np.argsort(t_sum)
+        roots = np.arange(adata.shape[0])  # instead of np.argsort(t_sum)
         idx_roots = np.array(adata.obs[root_key][roots])
         idx_roots[pd.isnull(idx_roots)] = 0
         if np.any([isinstance(ix, str) for ix in idx_roots]):
@@ -817,29 +825,40 @@ def latent_time(
     )
     vpt = VPT.pseudotime
 
-    if min_corr_diffusion is not None:
-        corr = vcorrcoef(t.T, vpt)
-        t = t[:, np.array(corr >= min_corr_diffusion, dtype=bool)]
+    if use_fit_t:
+        if min_corr_diffusion is not None:
+            corr = vcorrcoef(t.T, vpt)
+            t = t[:, np.array(corr >= min_corr_diffusion, dtype=bool)]
 
-    if root_key in adata.uns.keys():
-        root = adata.uns[root_key]
-        t, t_ = root_time(t, root=root)
-        latent_time = compute_shared_time(t)
-    else:
-        roots = roots[:4]  # NOTE(Haotian): you only use the top 4 cells?
-        latent_time = np.ones(shape=(len(roots), adata.n_obs))
-        for i, root in enumerate(roots):
+        if root_key in adata.uns.keys():
+            root = adata.uns[root_key]
             t, t_ = root_time(t, root=root)
-            latent_time[i] = compute_shared_time(t)  # NOTE(Haotian): for each one cell, this is super ad-hoc, just select those ts look better for 2 select rows.
-        latent_time = scale(np.mean(latent_time, axis=0))
+            latent_time = compute_shared_time(t)
+        else:
+            roots = roots[:4]  # NOTE(Haotian): you only use the top 4 cells?
+            latent_time = np.ones(shape=(len(roots), adata.n_obs))
+            for i, root in enumerate(roots):
+                t, t_ = root_time(t, root=root)
+                latent_time[i] = compute_shared_time(t)  # NOTE(Haotian): for each one cell, this is super ad-hoc, just select those ts look better for 2 select rows.
+            latent_time = scale(np.mean(latent_time, axis=0))
 
-    if fates[0] is not None:
-        fates = fates[:4]
-        latent_time_ = np.ones(shape=(len(fates), adata.n_obs))
-        for i, fate in enumerate(fates):
-            t, t_ = root_time(t, root=fate)
-            latent_time_[i] = 1 - compute_shared_time(t)
-        latent_time = scale(latent_time + 0.2 * scale(np.mean(latent_time_, axis=0)))
+        if fates[0] is not None:
+            fates = fates[:4]
+            latent_time_ = np.ones(shape=(len(fates), adata.n_obs))
+            for i, fate in enumerate(fates):
+                t, t_ = root_time(t, root=fate)
+                latent_time_[i] = 1 - compute_shared_time(t)
+            latent_time = scale(latent_time + 0.2 * scale(np.mean(latent_time_, axis=0)))
+    elif method == 'eig':
+        # using the eigenvector method
+        T = data.uns[f"{vkey}_graph"] - data.uns[f"{vkey}_graph_neg"]
+        # T += T.T
+        eigvecs = eigs(T, eps=1e-3, random_state=0)[1]
+        pt = T.dot(eigvecs).sum(1)
+        # pt = scale(np.clip(pt, 0, np.percentile(pt, 98)))
+        latent_time = scale(pt)
+    else:
+        latent_time = scale(vpt)
 
     tl = latent_time
     tc = conn.dot(latent_time)
