@@ -751,6 +751,7 @@ def latent_time(
     if "fit_t" not in adata.layers.keys():
         raise ValueError("you need to run `tl.recover_dynamics` first.")
 
+    # NOTE(Haotian): first need the velocity graph
     if f"{vkey}_graph" not in adata.uns.keys():
         velocity_graph(adata, approx=True)
 
@@ -761,12 +762,13 @@ def latent_time(
             root_key = keys[0]
     if root_key not in adata.uns.keys() and root_key not in adata.obs.keys():
         root_key = "root_cells"
+    # NOTE(Haotian): computing the root cells
     if root_key not in adata.obs.keys():
         terminal_states(adata, vkey=vkey)
 
     t = np.array(adata.layers["fit_t"])
-    idx_valid = ~np.isnan(t.sum(0))
-    if min_likelihood is not None:
+    idx_valid = ~np.isnan(t.sum(0))  # this is the valid idx on the gene axis, each has to have valid time t across all cells
+    if min_likelihood is not None: # filter out more unreliable ts
         likelihood = adata.var["fit_likelihood"].values
         idx_valid &= np.array(likelihood >= min_likelihood, dtype=bool)
     t = t[:, idx_valid]
@@ -781,7 +783,7 @@ def latent_time(
             idx_roots = np.array([isinstance(ix, str) for ix in idx_roots], dtype=int)
         idx_roots = idx_roots.astype(np.float) > 1 - 1e-3
         if np.sum(idx_roots) > 0:
-            roots = roots[idx_roots]
+            roots = roots[idx_roots]  # NOTE(Haotian): 1. Here is the actual root_cell index. 2. I don't think the argsort(8 lines before) is needed, you just need the index.
         else:
             logg.warn(
                 "No root cells detected. Consider specifying "
@@ -809,6 +811,7 @@ def latent_time(
         r=True,
     )
 
+    # NOTE(Haotian): actual pseudotime call
     VPT = velocity_pseudotime(
         adata, vkey, root_key=roots[0], end_key=fates[0], return_model=True
     )
@@ -823,11 +826,11 @@ def latent_time(
         t, t_ = root_time(t, root=root)
         latent_time = compute_shared_time(t)
     else:
-        roots = roots[:4]
+        roots = roots[:4]  # NOTE(Haotian): you only use the top 4 cells?
         latent_time = np.ones(shape=(len(roots), adata.n_obs))
         for i, root in enumerate(roots):
             t, t_ = root_time(t, root=root)
-            latent_time[i] = compute_shared_time(t)
+            latent_time[i] = compute_shared_time(t)  # NOTE(Haotian): for each one cell, this is super ad-hoc, just select those ts look better for 2 select rows.
         latent_time = scale(np.mean(latent_time, axis=0))
 
     if fates[0] is not None:
@@ -841,7 +844,7 @@ def latent_time(
     tl = latent_time
     tc = conn.dot(latent_time)
 
-    z = tl.dot(tc) / tc.dot(tc)
+    z = tl.dot(tc) / tc.dot(tc)  # NOTE(Haotian): what is the purpose of these steps? what is going on here? if z is closed to 1. basically, it is the eigenvector.
     tl_conf = (1 - np.abs(tl / np.max(tl) - tc * z / np.max(tl))) ** 2
     idx_low_confidence = tl_conf < min_confidence
 

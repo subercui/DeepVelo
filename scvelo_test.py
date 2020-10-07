@@ -2,6 +2,7 @@
 import scvelo as scv
 import numpy as np
 from time import time
+from utils.temporal import latent_time
 from utils.scatter import scatter
 import os
 
@@ -10,7 +11,7 @@ scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified vi
 DEEPVELO = False  # choice of {True, False, 'ShowTarget'}
 DYNAMICAL = True  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
-data = 'velocyto_dg'  # choice of {'EP', 'DG', 'velocyto_dg', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
+data = 'EP'  # choice of {'EP', 'DG', 'velocyto_dg', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
 SURFIX = '[dynamical]' if DYNAMICAL else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
 
@@ -115,7 +116,7 @@ elif data.startswith('E9'):
     scatter(adata, var_names=['Mybl1'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
     scatter(adata, var_names=['Rragb'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
 if DYNAMICAL:
-    scv.tl.latent_time(adata)
+    latent_time(adata)
     scv.pl.scatter(
         adata, 
         color='latent_time', 
