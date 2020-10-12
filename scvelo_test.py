@@ -8,8 +8,8 @@ import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-DEEPVELO = False  # choice of {True, False, 'ShowTarget'}
-DYNAMICAL = True  # whether use the dynamical mode of scvelo and compute latent time
+DEEPVELO = True  # choice of {True, False, 'ShowTarget'}
+DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
 data = 'EP'  # choice of {'EP', 'DG', 'velocyto_dg', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
 SURFIX = '[dynamical]' if DYNAMICAL else ''
@@ -115,16 +115,16 @@ elif data.startswith('E9'):
     scv.pl.velocity(adata, var_names=['Mybl1', 'Rragb'], basis='pca', dpi=300, save=f'phase_velo_exp{SURFIX}.png')
     scatter(adata, var_names=['Mybl1'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
     scatter(adata, var_names=['Rragb'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
-if DYNAMICAL:
-    latent_time(adata)
-    scv.pl.scatter(
-        adata, 
-        color='latent_time', 
-        color_map='gnuplot', 
-        size=80,
-        dpi=300,
-        save=f'latent_time{SURFIX}.png'
-    )
+
+latent_time(adata, method='eig')
+scv.pl.scatter(
+    adata, 
+    color='latent_time', 
+    color_map='gnuplot', 
+    size=80,
+    dpi=300,
+    save=f'latent_time{SURFIX}.png'
+)
 
 
 # %% [markdown]
