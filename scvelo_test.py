@@ -9,7 +9,7 @@ import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-MARK_ZERO = True
+MASK_ZERO = True
 DEEPVELO = False  # choice of {True, False, 'ShowTarget'}
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
@@ -50,9 +50,9 @@ scv.pp.moments(adata, n_neighbors=30, n_pcs=30)
 # import pudb; pudb.set_trace()
 if DYNAMICAL:
     scv.tl.recover_dynamics(adata)
-    velocity(adata, mode='dynamical')
+    velocity(adata, mode='dynamical', mask_zero=MASK_ZERO)
 else:
-    velocity(adata)
+    velocity(adata, mask_zero=MASK_ZERO)
 
 # %% output and change the velocity
 np.savez(
@@ -118,7 +118,7 @@ elif data.startswith('E9'):
     scatter(adata, var_names=['Mybl1'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
     scatter(adata, var_names=['Rragb'], basis='pca', add_quiver=True, dpi=300, save=f'phase{SURFIX}.png')
 
-latent_time(adata, method='eig')
+latent_time(adata)
 scv.pl.scatter(
     adata, 
     color='latent_time', 

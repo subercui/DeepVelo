@@ -20,7 +20,7 @@ def get_weight(x, y=None, perc=95):
     return weights
 
 
-def leastsq_NxN(x, y, fit_offset=False, perc=None, constraint_positive_offset=True):
+def leastsq_NxN(x, y, fit_offset=False, perc=None, constraint_positive_offset=True, mask_zero=False):
     """Solves least squares X*b=Y for b.
     """
     if perc is not None:
@@ -30,6 +30,10 @@ def leastsq_NxN(x, y, fit_offset=False, perc=None, constraint_positive_offset=Tr
         x, y = weights.multiply(x).tocsr(), weights.multiply(y).tocsr()
     else:
         weights = None
+
+    #mask zero
+    if mask_zero:
+        x[y==0] = 0
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

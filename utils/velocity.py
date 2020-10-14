@@ -45,11 +45,11 @@ class Velocity:
         self._r2_adjusted = r2_adjusted
         self._min_r2 = min_r2
 
-    def compute_deterministic(self, fit_offset=False, perc=None):
+    def compute_deterministic(self, fit_offset=False, perc=None, mask_zero=False):
         subset = self._groups_for_fit
         Ms = self._Ms if subset is None else self._Ms[subset]
         Mu = self._Mu if subset is None else self._Mu[subset]
-        self._offset, self._gamma = leastsq_NxN(Ms, Mu, fit_offset, perc)
+        self._offset, self._gamma = leastsq_NxN(Ms, Mu, fit_offset, perc, mask_zero=mask_zero)
 
         if self._constrain_ratio is not None:
             if np.size(self._constrain_ratio) < 2:
@@ -64,7 +64,7 @@ class Velocity:
 
         # velocity genes
         if self._r2_adjusted:
-            _offset, _gamma = leastsq_NxN(Ms, Mu, fit_offset)
+            _offset, _gamma = leastsq_NxN(Ms, Mu, fit_offset, mask_zero=mask_zero)
             _residual = self._Mu - _gamma * self._Ms
             if fit_offset:
                 _residual -= _offset
@@ -185,6 +185,7 @@ def velocity(
     data,
     vkey="velocity",
     mode="stochastic",
+    mask_zero=False,
     fit_offset=False,
     fit_offset2=False,
     filter_genes=False,
@@ -227,6 +228,8 @@ def velocity(
         Whether to run the estimation using the steady-state/deterministic,
         stochastic or dynamical model of transcriptional dynamics.
         The dynamical model requires to run `tl.recover_dynamics` first.
+    mask_zero: `bool` (default: `False`)
+        whether to mask the cells with zero spliced or unspliced genes in leastsq_NxN
     fit_offset: `bool` (default: `False`)
         Whether to fit with offset for first order moment dynamics.
     fit_offset2: `bool`, (default: `False`)
@@ -285,7 +288,7 @@ def velocity(
         )
 
     if mode in {"dynamical", "dynamical_residuals"}:
-        from .dynamical_model_utils import get_reads, get_vars, get_divergence
+        from scvelo.tools.dynamical_model_utils import get_reads, get_vars, get_divergence
 
         gene_subset = ~np.isnan(adata.var["fit_alpha"].values)
         vdata = adata[:, gene_subset]
@@ -329,7 +332,7 @@ def velocity(
                     min_r2=min_r2,
                     use_raw=use_raw,
                 )
-                velo.compute_deterministic(fit_offset=fit_offset, perc=perc)
+                velo.compute_deterministic(fit_offset=fit_offset, perc=perc, mask_zero=mask_zero)
                 adata.var["fit_r2"] = velo._r2
             vgenes &= adata.var.fit_r2 > min_r2
 
@@ -373,7 +376,7 @@ def velocity(
                 use_raw=use_raw,
             )
             # actual velocity call 1
-            velo.compute_deterministic(fit_offset=fit_offset, perc=perc)
+            velo.compute_deterministic(fit_offset=fit_offset, perc=perc, mask_zero=mask_zero)
 
             if mode == "stochastic":
                 if filter_genes and len(set(velo._velocity_genes)) > 1:
