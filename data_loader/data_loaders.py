@@ -1,3 +1,4 @@
+import pickle
 from torchvision import datasets, transforms
 from base import BaseDataLoader
 import torch
@@ -8,17 +9,22 @@ import dgl
 from dgl.contrib.sampling import NeighborSampler
 
 class VeloDataset(Dataset):
-    def __init__(self, data_dir, train=True, type='average', topC=30, topG=16):
-        data_obj = np.load(data_dir)
+    def __init__(self, data_dir, train=True, type='average', topC=30, topG=16, nn_smooth=False):
+        with open(data_dir, 'rb') as f:
+            data_obj = pickle.load(f)
         self.Ux_sz = data_obj['Ux_sz'].T
         self.Sx_sz = data_obj['Sx_sz'].T
         self.velo = data_obj['velo'].T # shape (1448, 1720) to shape (1720, 1448)
+        self.connectivities = data_obj['conn'].T  # shape (cells, features)
         self.topG = topG
         N_cell, N_gene = self.Sx_sz.shape
         
 
         self.S_tp1 = self.Sx_sz + self.velo
-        dist = pairwise_distances(self.S_tp1, self.Sx_sz)  # (1720, 1720)
+        if not nn_smooth:
+            dist = pairwise_distances(self.S_tp1, self.Sx_sz)  # (1720, 1720)
+        else:
+            dist = pairwise_distances(self.connectivities.dot(self.S_tp1), self.connectivities.dot(self.Sx_sz))  # (1720, 1720)
         ind = np.argsort(dist, axis=1)[:, :topC]  # (1720, 30)
         # update the velocity target vectors
         if type == 'average':

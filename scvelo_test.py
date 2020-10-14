@@ -1,4 +1,5 @@
 # %%
+import pickle
 import scvelo as scv
 import numpy as np
 from time import time
@@ -9,8 +10,8 @@ import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-MASK_ZERO = True
-DEEPVELO = False  # choice of {True, False, 'ShowTarget'}
+MASK_ZERO = False
+DEEPVELO = True  # choice of {True, False, 'ShowTarget'}
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
 data = 'EP'  # choice of {'EP', 'DG', 'velocyto_dg', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
@@ -55,13 +56,14 @@ else:
     velocity(adata, mask_zero=MASK_ZERO)
 
 # %% output and change the velocity
-np.savez(
-    './data/scveloDG.npz', 
-    Ux_sz=adata.layers['Mu'].T, 
-    Sx_sz=adata.layers['Ms'].T, 
-    velo=adata.layers['velocity'].T
-    ) # have to input in dimmention order (1999 genes, 2930 cells)
-#data = np.load('./data/DG_norm_genes.npz'); data.files; data['Ux_sz']
+to_save = {
+    'Ux_sz':adata.layers['Mu'].T, 
+    'Sx_sz':adata.layers['Ms'].T, 
+    'velo':adata.layers['velocity'].T,
+    'conn':adata.obsp['connectivities'].T  # (features, cells)
+    } # have to input in dimmention order (1999 genes, 2930 cells)
+with open('./data/scveloDG.npz', 'wb') as f:
+    pickle.dump(to_save, f)
 if DEEPVELO == 'ShowTarget':
     print('computing target velocities')
     n_genes, batch_size = adata.layers['velocity'].T.shape
