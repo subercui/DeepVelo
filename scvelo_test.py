@@ -4,11 +4,13 @@ import numpy as np
 from time import time
 from utils.temporal import latent_time
 from utils.scatter import scatter
+from utils.velocity import velocity
 import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-DEEPVELO = True  # choice of {True, False, 'ShowTarget'}
+MARK_ZERO = True
+DEEPVELO = False  # choice of {True, False, 'ShowTarget'}
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
 data = 'EP'  # choice of {'EP', 'DG', 'velocyto_dg', 'velocyto_hg', 'E9M2_Glial', 'E9-11F1_Glial', 'E9-11M2_Glial', 'E9-11F1_Gluta'}
@@ -48,9 +50,9 @@ scv.pp.moments(adata, n_neighbors=30, n_pcs=30)
 # import pudb; pudb.set_trace()
 if DYNAMICAL:
     scv.tl.recover_dynamics(adata)
-    scv.tl.velocity(adata, mode='dynamical')
+    velocity(adata, mode='dynamical')
 else:
-    scv.tl.velocity(adata)
+    velocity(adata)
 
 # %% output and change the velocity
 np.savez(
