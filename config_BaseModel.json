@@ -16,7 +16,10 @@
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.0,
-            "num_workers": 2
+            "num_workers": 2,
+            "type": "average",
+            "topC": 30,
+            "topG": 16
         }
     },
     "online_test": "velo_mat_E10-12.npz",
@@ -29,6 +32,8 @@
         }
     },
     "loss": "mse_loss",
+    "constraint_loss": false,
+    "mask_zeros": true,
     "metrics": [
         "mse"
     ],
@@ -40,7 +45,7 @@
         }
     },
     "trainer": {
-        "epochs": 120,
+        "epochs": 40,
 
         "save_dir": "saved/",
         "save_period": 30,
