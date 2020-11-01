@@ -10,7 +10,7 @@ import os
 
 scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
 scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified visualization
-MASK_ZERO = False
+MASK_ZERO = True
 DEEPVELO = True  # choice of {True, False, 'ShowTarget'}
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
