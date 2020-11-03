@@ -9,7 +9,7 @@ import dgl
 from dgl.contrib.sampling import NeighborSampler
 
 class VeloDataset(Dataset):
-    def __init__(self, data_dir, train=True, type='average', topC=30, topG=16, nn_smooth=False):
+    def __init__(self, data_dir, train=True, type='average', topC=30, topG=20, nn_smooth=False):
         with open(data_dir, 'rb') as f:
             data_obj = pickle.load(f)
         self.Ux_sz = data_obj['Ux_sz'].T
@@ -46,7 +46,7 @@ class VeloDataset(Dataset):
         
         # build the knn graph in the original space
         dist = pairwise_distances(self.Sx_sz, self.Sx_sz)  # (1720, 1720)
-        ind = np.argsort(dist, axis=1)[:, :20]  # (1720, 20)
+        ind = np.argsort(dist, axis=1)[:, :topG]  # (1720, 20)
         self.g = self.build_graph(ind)
         self.ind = ind
 

@@ -82,6 +82,7 @@ elif DEEPVELO:
     # os.system(f'python train.py -c config_BaseModel.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     # if using test
     # os.system(f'python train.py -c config_test.json --ng {n_genes} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
+    # os.system(f'python train.py -c config_test_gin.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     os.system(f'python train.py -c config_test_gcn.json --ng {n_genes} --bs {batch_size} --ot {DEEPVELO_FILE} --dd ./data/scveloDG.npz')
     print(f'finished in {time()-now:.2f}s')
 

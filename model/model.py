@@ -125,24 +125,26 @@ class VeloGIN(BaseModel):
                  n_genes,
                  layers = [64],
                  n_mlp_layers = 2,
-                 hiden_dim = 64,
+                 hidden_dim = 64,
+                 res_connect = False,
                  activation =F.relu):
         super(VeloGIN, self).__init__()
         self.g = g # the graph  
         self.layers = nn.ModuleList()
+        # TODO(Haotian): test an embedding layer before the input
         # input layer
         mlp = MLP(n_mlp_layers, n_genes*2, hidden_dim, layers[0])
-        self.layers.append(GINLayer(ApplyNodeFunc(mlp), aggr_type=True, dropout=0.0,
-                                    batch_norm=True, residual=True, init_eps=0, learn_eps=True))
+        self.layers.append(GINLayer(ApplyNodeFunc(mlp), aggr_type='sum', dropout=0.0,
+                                    batch_norm=True, residual=res_connect, init_eps=0, learn_eps=True))
         # hidden layers
         for i in range(len(layers) - 1):
             mlp = MLP(n_mlp_layers, layers[i], hidden_dim, layers[i + 1])
-            self.layers.append(GINLayer(ApplyNodeFunc(mlp), aggr_type=True, dropout=0.0,
-                                        batch_norm=True, residual=True, init_eps=0, learn_eps=True))
+            self.layers.append(GINLayer(ApplyNodeFunc(mlp), aggr_type='sum', dropout=0.0,
+                                        batch_norm=True, residual=res_connect, init_eps=0, learn_eps=True))
         # output layer
         mlp = MLP(n_mlp_layers, layers[-1], hidden_dim, n_genes*2)
-        self.layers.append(GINLayer(ApplyNodeFunc(mlp), aggr_type=True, dropout=0.0,
-                                        batch_norm=True, residual=True, init_eps=0, learn_eps=True))
+        self.layers.append(GINLayer(ApplyNodeFunc(mlp), aggr_type='sum', dropout=0.0,
+                                        batch_norm=True, residual=res_connect, init_eps=0, learn_eps=True))
 
     def forward(self, x_u, x_s):
         """

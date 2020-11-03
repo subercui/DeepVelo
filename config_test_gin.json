@@ -3,7 +3,7 @@
     "n_gpu": 1,
 
     "arch": {
-        "type": "VeloGIN",
+        "type": "VeloGCN",
         "args": {
             "n_genes": 2001, 
             "layers": [64, 64]
