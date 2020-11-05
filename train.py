@@ -7,7 +7,7 @@ import model.loss as module_loss
 import model.metric as module_metric
 import model.model as module_arch
 from parse_config import ConfigParser
-from trainer import Trainer
+from trainer import Trainer, AdaptiveTrainer
 
 
 # fix random seeds for reproducibility
@@ -48,6 +48,15 @@ def main(config):
                       lr_scheduler=lr_scheduler)
 
     trainer.train()
+
+    if config['adaptive_train']:
+        adaptive_trainer = AdaptiveTrainer(model, criterion, metrics, optimizer,
+                                           config=config,
+                                           data_loader=data_loader,
+                                           valid_data_loader=valid_data_loader,
+                                           lr_scheduler=lr_scheduler
+                                           )
+        adaptive_trainer.train()
 
     # evaluate all and return the velocity matrix (1720, 1448)
     config_copy = config['data_loader']['args'].copy()

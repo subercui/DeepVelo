@@ -1,4 +1,6 @@
 import numpy as np
+from numpy import inf
+from logger import TensorboardWriter
 import torch
 import dgl
 from torchvision.utils import make_grid
@@ -151,7 +153,62 @@ class AdaptiveTrainer(Trainer):
     """
     Adaptive Trainer for adaptive training stage. Target is computed every epoch.
     """
-    
+    def __init__(self, model, criterion, metric_ftns, optimizer, config, data_loader,
+                 valid_data_loader=None, lr_scheduler=None, len_epoch=None):
+        super().__init__(model, criterion, metric_ftns, optimizer, config,
+                         data_loader, valid_data_loader, lr_scheduler, len_epoch)
+        cfg_trainer = config['adaptive_trainer']
+        self.epochs = cfg_trainer['epochs']
+        self.save_period = cfg_trainer['save_period']
+        self.monitor = cfg_trainer.get('monitor', 'off')
+
+        # configuration to monitor model performance and save best
+        if self.monitor == 'off':
+            self.mnt_mode = 'off'
+            self.mnt_best = 0
+        else:
+            self.mnt_mode, self.mnt_metric = self.monitor.split()
+            assert self.mnt_mode in ['min', 'max']
+
+            self.mnt_best = inf if self.mnt_mode == 'min' else -inf
+            self.early_stop = cfg_trainer.get('early_stop', inf)
+
+        self.start_epoch = 1
+
+        self.checkpoint_dir = config.save_dir
+
+        # setup visualization writer instance                
+        self.writer = TensorboardWriter(config.log_dir, self.logger, cfg_trainer['tensorboard'])
+
+    def real_time_target(self, data_dict, output, nn_smooth=False):
+        """
+        output: torch.tensor - estimated velocity, (N_batch, N_genes)
+        """
+        from sklearn.metrics import pairwise_distances
+        topC = self.config['data_loader']['args']['topC']
+        # TODO: make the following onto GPU
+        if isinstance(data_dict, dgl.nodeflow.NodeFlow):
+            raise NotImplementedError(
+                "Function real_time_target not yet implemented for dgl.nodeflow. "
+                "Perhaps the model is running with nodeflow"
+            )
+        output = output.detach().cpu().numpy()
+
+        s_t = data_dict['Sx_sz'].cpu().numpy()# np.array, (N_batch, N_gene)
+        s_tp1 = s_t + output
+        if not nn_smooth:
+            dist = pairwise_distances(s_tp1, s_t)  # (1720, 1720)
+        else:
+            raise NotImplementedError
+        ind = np.argsort(dist, axis=1)[:, :topC]
+        target = np.zeros(output.shape, dtype=np.float32)
+        for i in range(output.shape[0]):
+            target[i] = np.mean(s_t[ind[i]], axis=0) - s_t[i]
+
+        target = torch.tensor(target, dtype=torch.float32).to(self.device)
+
+        return target
+
     def _train_epoch(self, epoch):
         """
         Training logic for an epoch
@@ -162,7 +219,10 @@ class AdaptiveTrainer(Trainer):
         self.model.train()
         self.train_metrics.reset()
         for batch_idx, batch_data in enumerate(self.data_loader):
-            output, target = self._compute_core(batch_data)
+            output, _ = self._compute_core(batch_data)
+            # TODO(Haotian): currently, the target computing is per batch. 
+            # May try put it per epoch when batch_size is not the whole epoch.
+            target = self.real_time_target(batch_data, output)
             if self.config['mask_zeros']:
                 data_dict = batch_data
                 mask = data_dict['mask'].to(self.device)  # (batch, n_gene)
