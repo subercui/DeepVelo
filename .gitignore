@@ -111,6 +111,7 @@ result_files
 temporary_files
 *.png
 *.loom
+*.txt
 
 # editor, os cache directory
 .vscode/
