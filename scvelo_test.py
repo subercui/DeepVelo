@@ -9,7 +9,7 @@ scv.settings.set_figure_params('scvelo', transparent=False)  # for beautified vi
 DEEPVELO = True
 DYNAMICAL = False  # whether use the dynamical mode of scvelo and compute latent time
 DEEPVELO_FILE = 'scvelo_mat.npz'
-data = 'EP'
+data = 'DG'
 SURFIX = '[dynamical]' if DYNAMICAL else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
 
