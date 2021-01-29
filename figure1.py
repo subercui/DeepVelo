@@ -18,3 +18,10 @@ DEEPVELO_FILE = 'scvelo_mat.npz'
 data = 'EP'
 SURFIX = '[dynamical]' if DYNAMICAL else ''
 SURFIX += '[deep_velo]' if DEEPVELO else ''
+
+
+# %% panel c
+scatter(adata, var_names=['Tmsb10'], basis='umap',
+        add_quiver=False, dpi=300, save=f'figure1/phase{SURFIX}.png',
+        legend_loc_lines="none",
+        figsize=(8, 7))
